@@ -23,11 +23,13 @@
     chats: storage.getChats(),
     support: storage.getSupport(),
     reviews: storage.getReviews(),
+    reports: storage.getReports(),
     activeChatId: null,
     supportNotice: false,
     contactNotice: false,
     reviewNotice: false,
-    aboutSection: 'about-platform'
+    aboutSection: 'about-platform',
+    pendingDeleteOfferId: null
   };
   const root = document.getElementById('view-root');
   const modal = document.getElementById('app-modal');
@@ -60,6 +62,7 @@
   function persistChats() { if (!storage.saveChats(state.chats)) showToast('Не удалось сохранить сообщения.', 'error'); }
   function persistSupport() { if (!storage.saveSupport(state.support)) showToast('Не удалось сохранить обращения.', 'error'); }
   function persistReviews() { if (!storage.saveReviews(state.reviews)) showToast('Не удалось сохранить отзывы.', 'error'); }
+  function persistReports() { if (!storage.saveReports(state.reports)) showToast('Не удалось сохранить жалобу.', 'error'); }
 
   function showToast(message, kind) {
     const region = document.getElementById('toast-region');
@@ -84,6 +87,88 @@
   function openInfoModal(message) {
     modalContent.innerHTML = '<button class="modal-close" type="button" data-action="close-modal" aria-label="Закрыть">×</button><p class="eyebrow">Сообщения</p><h2>' + escapeHTML(message) + '</h2>';
     modal.showModal();
+  }
+
+  function openDeleteConfirmation(offerId) {
+    currentUser = storage.getCurrentUser();
+    const offer = state.offers.find(function (item) { return item.id === offerId; });
+    if (!currentUser || !offer || resolveOfferUserId(offer) !== currentUser.id) {
+      openInfoModal('Удалять можно только собственные предложения.');
+      return;
+    }
+    state.pendingDeleteOfferId = offerId;
+    modalContent.innerHTML = '<button class="modal-close" type="button" data-action="close-modal" aria-label="Закрыть">×</button><p class="eyebrow">Удаление предложения</p><h2>Вы уверены, что хотите удалить это предложение?</h2><p class="auth-lead">Оно исчезнет из каталога и вашего профиля.</p><div class="modal-actions"><button class="button button-secondary" type="button" data-action="close-modal">Отмена</button><button class="button button-danger" type="button" data-action="confirm-delete">Удалить</button></div>';
+    modal.showModal();
+  }
+
+  function reportReasons(type) {
+    return type === 'dialog' ? ['Спам или навязчивая реклама', 'Оскорбления или травля', 'Мошенничество или подозрительные предложения', 'Неприемлемое поведение', 'Нарушение правил платформы', 'Другая причина'] : ['Спам или реклама', 'Мошенничество или обман', 'Оскорбительный или неподобающий контент', 'Ложная или вводящая в заблуждение информация', 'Нарушение правил платформы', 'Другая причина'];
+  }
+
+  function openReportModal(type, objectId) {
+    if (!currentUser) {
+      openAuthPrompt('Чтобы отправить жалобу, необходимо войти в аккаунт.');
+      return;
+    }
+    const objectType = type === 'dialog' ? 'dialog' : 'offer';
+    const reasons = reportReasons(objectType);
+    const targetOffer = objectType === 'offer' ? state.offers.find(function (item) { return item.id === objectId; }) : null;
+    const targetChat = objectType === 'dialog' ? state.chats.find(function (chat) { return chat.id === objectId; }) : null;
+    if (targetOffer && resolveOfferUserId(targetOffer) === currentUser.id) {
+      openInfoModal('Нельзя пожаловаться на собственное предложение.');
+      return;
+    }
+    if (objectType === 'offer' && !targetOffer || objectType === 'dialog' && (!targetChat || !targetChat.participants.includes(currentUser.id))) {
+      openInfoModal('Объект жалобы недоступен.');
+      return;
+    }
+    const targetUserId = targetOffer ? resolveOfferUserId(targetOffer) : targetChat.participants.find(function (id) { return id !== currentUser.id; });
+    const title = objectType === 'dialog' ? 'Пожаловаться на диалог' : 'Пожаловаться на предложение';
+    modalContent.innerHTML = '<button class="modal-close" type="button" data-action="close-modal" aria-label="Закрыть">×</button><p class="eyebrow">Жалоба</p><h2>' + title + '</h2><form id="report-form" novalidate data-report-type="' + objectType + '" data-report-id="' + escapeHTML(objectId) + '" data-target-user-id="' + escapeHTML(targetUserId || '') + '"><div class="form-field"><label for="report-reason">Причина</label><select id="report-reason" name="reason" required><option value="">Выберите причину</option>' + reasons.map(function (reason) { return '<option>' + escapeHTML(reason) + '</option>'; }).join('') + '</select><span class="field-error" data-error="reason"></span></div><div class="form-field"><label for="report-details">Подробности (необязательно)</label><textarea id="report-details" name="details" maxlength="1000" placeholder="Опишите ситуацию..."></textarea></div><div class="form-actions"><button class="button button-secondary" type="button" data-action="close-modal">Отмена</button><button class="button button-primary" type="submit">Отправить жалобу</button></div></form>';
+    modal.showModal();
+  }
+
+  function deleteOffer(offerId) {
+    currentUser = storage.getCurrentUser();
+    const offer = state.offers.find(function (item) { return item.id === offerId; });
+    if (!currentUser || !offer || resolveOfferUserId(offer) !== currentUser.id) {
+      openInfoModal('Удалять можно только собственные предложения.');
+      return;
+    }
+    state.offers = state.offers.filter(function (item) { return item.id !== offerId; });
+    state.favorites = state.favorites.filter(function (id) { return id !== offerId; });
+    persistOffers();
+    persistFavorites();
+    state.pendingDeleteOfferId = null;
+    if (state.detailOfferId === offerId) state.detailOfferId = null;
+    if (modal.open) modal.close();
+    render();
+    showToast('Предложение удалено.', 'success');
+  }
+
+  function onReportSubmit(form) {
+    currentUser = storage.getCurrentUser();
+    if (!currentUser) { openAuthPrompt('Чтобы отправить жалобу, необходимо войти в аккаунт.'); return; }
+    const reason = formValue(form, 'reason');
+    const objectType = form.dataset.reportType;
+    const objectId = form.dataset.reportId;
+    const targetUserId = form.dataset.targetUserId || null;
+    showFieldError(form, 'reason', reason ? '' : 'Выберите причину жалобы.');
+    const targetOffer = objectType === 'offer' ? state.offers.find(function (item) { return item.id === objectId; }) : null;
+    const targetChat = objectType === 'dialog' ? state.chats.find(function (chat) { return chat.id === objectId; }) : null;
+    if (!reason || !objectType || !objectId || objectType === 'offer' && (!targetOffer || resolveOfferUserId(targetOffer) === currentUser.id) || objectType === 'dialog' && (!targetChat || !targetChat.participants.includes(currentUser.id))) return;
+    const duplicate = state.reports.some(function (report) {
+      return report.reporterId === currentUser.id && report.objectType === objectType && report.objectId === objectId && ['new', 'in_review'].includes(report.status);
+    });
+    if (duplicate) {
+      modal.close();
+      showToast('Вы уже отправляли жалобу на этот объект.', 'error');
+      return;
+    }
+    state.reports.push({ id: 'report-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 7), objectType: objectType, objectId: objectId, reporterId: currentUser.id, targetUserId: targetUserId, reason: reason, details: formValue(form, 'details'), createdAt: new Date().toISOString(), status: 'new' });
+    persistReports();
+    modal.close();
+    showToast('Жалоба успешно отправлена.', 'success');
   }
 
   function onAuthSubmit(form, register) {
@@ -369,6 +454,45 @@
     });
   }
 
+  function addModerationButtons() {
+    root.querySelectorAll('.skill-card').forEach(function (card) {
+      const details = card.querySelector('[data-action="details"]');
+      if (!details) return;
+      const offer = state.offers.find(function (item) { return item.id === details.dataset.id; });
+      if (!offer) return;
+      const ownerId = resolveOfferUserId(offer);
+      const actionButton = document.createElement('button');
+      actionButton.className = 'button button-quiet moderation-button';
+      actionButton.type = 'button';
+      if (currentUser && ownerId === currentUser.id) {
+        actionButton.dataset.action = 'delete-offer';
+        actionButton.dataset.id = offer.id;
+        actionButton.setAttribute('aria-label', 'Удалить предложение');
+        actionButton.textContent = 'Удалить';
+      } else {
+        actionButton.dataset.action = 'report-offer';
+        actionButton.dataset.id = offer.id;
+        actionButton.setAttribute('aria-label', 'Пожаловаться на предложение');
+        actionButton.textContent = 'Пожаловаться';
+      }
+      details.parentElement.insertBefore(actionButton, details.nextSibling);
+    });
+  }
+
+  function addChatReportButton() {
+    if (state.view !== 'messages' || !state.activeChatId) return;
+    const header = root.querySelector('.chat-header');
+    if (!header) return;
+    const reportButton = document.createElement('button');
+    reportButton.className = 'button button-quiet chat-report-button';
+    reportButton.type = 'button';
+    reportButton.dataset.action = 'report-dialog';
+    reportButton.dataset.id = state.activeChatId;
+    reportButton.setAttribute('aria-label', 'Пожаловаться на диалог');
+    reportButton.textContent = 'Пожаловаться';
+    header.appendChild(reportButton);
+  }
+
   function render() {
     updateNavigation();
     const views = { home: renderHome, explore: renderExplore, create: renderCreate, matches: renderMatches, favorites: renderFavorites, profile: renderProfile, about: renderAbout };
@@ -393,7 +517,11 @@
         box.appendChild(addButton);
       });
     }
-    if (['home', 'explore', 'matches', 'favorites', 'profile'].includes(state.view)) addWriteButtons();
+    if (['home', 'explore', 'matches', 'favorites', 'profile'].includes(state.view)) {
+      addWriteButtons();
+      addModerationButtons();
+    }
+    addChatReportButton();
     root.setAttribute('aria-busy', 'false');
   }
 
@@ -419,6 +547,20 @@
     state.detailOfferId = id;
     const isFavorite = state.favorites.includes(id);
     modalContent.innerHTML = '<button class="modal-close" type="button" data-action="close-modal" aria-label="Закрыть">×</button><p class="eyebrow">Предложение сообщества</p><div class="detail-person">' + avatar(offer.userName, offer.color, 'avatar-large') + '<div><h2>' + escapeHTML(offer.userName) + '</h2><p class="person-meta">' + escapeHTML(offer.city || 'Сообщество SkillSwap') + '</p></div></div><div class="detail-pair"><div class="detail-skill"><small>Могу научить</small><strong>' + escapeHTML(offer.teach) + '</strong></div><div class="detail-skill learn"><small>Хочу научиться</small><strong>' + escapeHTML(offer.learn) + '</strong></div></div><p class="detail-description">' + escapeHTML(offer.description) + '</p><div class="detail-meta"><div><small>Категория</small><strong>' + escapeHTML(offer.category) + '</strong></div><div><small>Уровень</small><strong>' + escapeHTML(offer.level) + '</strong></div><div><small>Формат</small><strong>' + escapeHTML(offer.format) + '</strong></div><div><small>Доступное время</small><strong>' + escapeHTML(offer.availability || 'По договорённости') + '</strong></div></div><div class="modal-actions"><button class="button button-secondary" type="button" data-action="favorite" data-id="' + escapeHTML(id) + '">' + (isFavorite ? '♥ В избранном' : '♡ В избранное') + '</button><button class="button button-primary" type="button" data-action="create-from-match">Предложить обмен <span aria-hidden="true">→</span></button></div>';
+    const detailActions = modalContent.querySelector('.modal-actions');
+    const detailOwnerId = resolveOfferUserId(offer);
+    const detailButton = document.createElement('button');
+    detailButton.className = 'button button-quiet';
+    detailButton.type = 'button';
+    detailButton.dataset.id = offer.id;
+    if (currentUser && detailOwnerId === currentUser.id) {
+      detailButton.dataset.action = 'delete-offer';
+      detailButton.textContent = 'Удалить предложение';
+    } else {
+      detailButton.dataset.action = 'report-offer';
+      detailButton.textContent = 'Пожаловаться';
+    }
+    detailActions.appendChild(detailButton);
     modal.showModal();
   }
 
@@ -649,6 +791,10 @@
     if (action.dataset.action === 'open-register') { openAuthModal('register'); return; }
     if (action.dataset.action === 'toggle-account') { document.getElementById('account-menu').classList.toggle('is-open'); return; }
     if (action.dataset.action === 'logout') { storage.clearCurrentUser(); window.location.reload(); return; }
+    if (action.dataset.action === 'delete-offer') { openDeleteConfirmation(action.dataset.id); return; }
+    if (action.dataset.action === 'confirm-delete') { deleteOffer(state.pendingDeleteOfferId); return; }
+    if (action.dataset.action === 'report-offer') { openReportModal('offer', action.dataset.id); return; }
+    if (action.dataset.action === 'report-dialog') { openReportModal('dialog', action.dataset.id); return; }
     if (action.dataset.action === 'start-chat') { startChat(action.dataset.userId, action.dataset.offerId); return; }
     if (action.dataset.action === 'open-chat') { state.activeChatId = action.dataset.id; goTo('messages'); return; }
     if (action.dataset.action === 'about-join') { if (currentUser) goTo('explore'); else openAuthModal('register'); return; }
@@ -703,6 +849,7 @@
     if (event.target.id === 'support-form') { event.preventDefault(); onSupportSubmit(event.target); }
     if (event.target.id === 'contact-form') { event.preventDefault(); onContactSubmit(event.target); }
     if (event.target.id === 'review-form') { event.preventDefault(); onReviewSubmit(event.target); }
+    if (event.target.id === 'report-form') { event.preventDefault(); onReportSubmit(event.target); }
   });
 
   mobileMenu.addEventListener('click', function () {
