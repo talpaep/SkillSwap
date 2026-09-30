@@ -19,7 +19,11 @@
     filters: initial.settings && initial.settings.filters ? initial.settings.filters : {},
     createdNotice: false,
     activeMood: initial.settings && initial.settings.activeMood ? initial.settings.activeMood : null,
-    detailOfferId: null
+    detailOfferId: null,
+    chats: storage.getChats(),
+    support: storage.getSupport(),
+    activeChatId: null,
+    supportNotice: false
   };
   const root = document.getElementById('view-root');
   const modal = document.getElementById('app-modal');
@@ -49,6 +53,8 @@
   function persistOffers() { if (!storage.saveOffers(state.offers)) showToast('Не удалось сохранить предложение. Проверьте настройки браузера.', 'error'); }
   function persistFavorites() { if (currentUser && !storage.saveFavorites(currentUser.id, state.favorites)) showToast('Не удалось сохранить избранное.', 'error'); }
   function persistProfile() { if (currentUser && !storage.saveProfile(currentUser.id, state.profile)) showToast('Не удалось сохранить профиль.', 'error'); }
+  function persistChats() { if (!storage.saveChats(state.chats)) showToast('Не удалось сохранить сообщения.', 'error'); }
+  function persistSupport() { if (!storage.saveSupport(state.support)) showToast('Не удалось сохранить обращения.', 'error'); }
 
   function showToast(message, kind) {
     const region = document.getElementById('toast-region');
@@ -67,6 +73,11 @@
 
   function openAuthPrompt(message) {
     modalContent.innerHTML = '<button class="modal-close" type="button" data-action="close-modal" aria-label="Закрыть">×</button><p class="eyebrow">Доступ участника</p><h2>' + escapeHTML(message) + '</h2><p class="auth-lead">Войдите или зарегистрируйтесь, чтобы продолжить.</p><div class="modal-actions"><button class="button button-secondary" type="button" data-action="open-login">Войти</button><button class="button button-primary" type="button" data-action="open-register">Регистрация</button></div>';
+    modal.showModal();
+  }
+
+  function openInfoModal(message) {
+    modalContent.innerHTML = '<button class="modal-close" type="button" data-action="close-modal" aria-label="Закрыть">×</button><p class="eyebrow">Сообщения</p><h2>' + escapeHTML(message) + '</h2>';
     modal.showModal();
   }
 
@@ -107,7 +118,8 @@
     });
     const accountActions = document.getElementById('account-actions');
     if (currentUser) {
-      accountActions.innerHTML = '<button class="account-button" type="button" data-action="toggle-account"><span class="nav-avatar" id="nav-avatar">' + escapeHTML(initials(state.profile.name)) + '</span><span>' + escapeHTML(state.profile.name) + '</span><span aria-hidden="true">⌄</span></button><div class="account-menu" id="account-menu"><button type="button" data-route="profile">Мой профиль</button><button type="button" data-route="profile">Мои предложения</button><button type="button" data-route="favorites">Избранное</button><button type="button" data-route="matches">Совпадения</button><button type="button" data-action="logout">Выйти</button></div>';
+      const unread = getUnreadCount();
+      accountActions.innerHTML = '<button class="account-button" type="button" data-action="toggle-account"><span class="nav-avatar" id="nav-avatar">' + escapeHTML(initials(state.profile.name)) + '</span><span>' + escapeHTML(state.profile.name) + '</span><span aria-hidden="true">⌄</span></button><div class="account-menu" id="account-menu"><button type="button" data-route="profile">Мой профиль</button><button type="button" data-route="profile">Мои предложения</button><button type="button" data-route="favorites">Избранное</button><button type="button" data-route="matches">Совпадения</button><button type="button" data-route="messages">Сообщения' + (unread ? ' <span class="count-badge">' + unread + '</span>' : '') + '</button><button type="button" data-route="support">Поддержка</button><button type="button" data-action="logout">Выйти</button></div>';
     } else {
       accountActions.innerHTML = '<button class="button button-secondary header-auth-button" type="button" data-action="open-login">Войти</button><button class="button button-primary header-auth-button" type="button" data-action="open-register">Регистрация</button>';
     }
@@ -120,7 +132,7 @@
   }
 
   function goTo(view, options) {
-    const validViews = ['home', 'explore', 'create', 'matches', 'favorites', 'profile'];
+    const validViews = ['home', 'explore', 'create', 'matches', 'favorites', 'profile', 'messages', 'support'];
     state.view = validViews.includes(view) ? view : 'home';
     if (!currentUser && ['create', 'matches', 'favorites', 'profile'].includes(state.view)) {
       openAuthPrompt(state.view === 'create' ? 'Создайте аккаунт, чтобы предложить свой навык.' : 'Войдите, чтобы открыть персональный раздел.');
@@ -141,6 +153,47 @@
 
   function skillOptionsMarkup() {
     return '<datalist id="skill-options"><option value="Программирование"></option><option value="Веб-разработка"></option><option value="Дизайн"></option><option value="Photoshop"></option><option value="Figma"></option><option value="Английский язык"></option><option value="Другие языки"></option><option value="Фотография"></option><option value="Видеомонтаж"></option><option value="Музыка"></option><option value="Гитара"></option><option value="Рисование"></option><option value="Маркетинг"></option><option value="SMM"></option><option value="Excel"></option><option value="Математика"></option><option value="Публичные выступления"></option></datalist>';
+  }
+
+  function getUnreadCount() {
+    if (!currentUser) return 0;
+    return state.chats.reduce(function (total, chat) {
+      return total + chat.messages.filter(function (message) { return message.receiverId === currentUser.id && !(message.readBy || []).includes(currentUser.id); }).length;
+    }, 0);
+  }
+
+  function getUserName(userId, fallback) {
+    const user = storage.getUsers().find(function (item) { return item.id === userId; });
+    const profile = storage.getProfile(userId);
+    return (user && user.name) || (profile && profile.name) || fallback || 'Пользователь';
+  }
+
+  function getTargetUser(userId, offer) {
+    const user = storage.getUsers().find(function (item) { return item.id === userId; });
+    if (user) return user;
+    const profile = storage.getProfile(userId);
+    if (profile) return { id: userId, name: profile.name || (offer && offer.userName) || 'Пользователь', email: profile.email || '' };
+    const demoUser = data.demoUsers.find(function (item) { return item.id === userId; });
+    if (demoUser) return demoUser;
+    if (offer && resolveOfferUserId(offer) === userId) return { id: userId, name: offer.userName || 'Пользователь', email: '' };
+    return null;
+  }
+
+  function resolveOfferUserId(offer) {
+    if (offer.userId) return offer.userId;
+    const matchingDemo = data.demoOffers.find(function (item) { return item.id === offer.id; });
+    if (matchingDemo && matchingDemo.userId) return matchingDemo.userId;
+    const matchingUser = storage.getUsers().find(function (user) { return user.name === offer.userName; });
+    return matchingUser ? matchingUser.id : '';
+  }
+
+  function chatPartner(chat) {
+    return chat.participants.find(function (participant) { return participant !== currentUser.id; });
+  }
+
+  function chatTime(timestamp) {
+    if (!timestamp) return '';
+    return new Intl.DateTimeFormat('ru-RU', { hour: '2-digit', minute: '2-digit' }).format(new Date(timestamp));
   }
 
   function renderHome() {
@@ -226,9 +279,66 @@
     return '<div class="page-shell"><div class="page-title-row"><div><p class="eyebrow">Твоя страница в сообществе</p><h1>Профиль</h1><p>Здесь собраны навыки и предложения для обмена.</p></div></div><section class="profile-hero">' + avatar(state.profile.name, state.profile.color, 'avatar-large') + '<div class="profile-main"><h2>' + escapeHTML(state.profile.name) + '</h2><p>' + escapeHTML(state.profile.city || 'Город не указан') + (state.profile.about ? ' · ' + escapeHTML(state.profile.about) : '') + '</p></div><button type="button" class="button button-secondary" data-action="edit-profile">Изменить профиль <span aria-hidden="true">↗</span></button></section><div class="profile-stats"><div class="stat-box"><strong>' + ownOffers.length + '</strong><span>Моих предложений</span></div><div class="stat-box"><strong>' + exactCount + '</strong><span>Точных совпадений</span></div><div class="stat-box"><strong>' + state.favorites.length + '</strong><span>В избранном</span></div></div><div class="profile-details"><section class="profile-skill-box"><h3>Могу поделиться</h3><div class="skill-pills">' + (teachSkills.length ? teachSkills.map(function (skill) { return '<span class="skill-pill">' + escapeHTML(skill) + '</span>'; }).join('') : '<span class="muted">Добавь навык в предложении</span>') + '</div></section><section class="profile-skill-box"><h3>Хочу научиться</h3><div class="skill-pills">' + (learnSkills.length ? learnSkills.map(function (skill) { return '<span class="skill-pill wants">' + escapeHTML(skill) + '</span>'; }).join('') : '<span class="muted">Добавь интерес в предложении</span>') + '</div></section></div><div class="section-heading profile-offers-title"><div><h2>Мои предложения</h2><p>Опубликованные предложения сообщества.</p></div><button class="button button-primary" type="button" data-route="create">+ Новое</button></div>' + (ownOffers.length ? '<div class="card-grid">' + ownOffers.map(renderSkillCard).join('') + '</div>' : renderEmpty('↗', 'Ты ещё не публиковал предложения', 'Расскажи, чему можешь научить, и найди подходящего партнёра.', 'Предложить навык', 'create')) + '</div>';
   }
 
+  function renderMessages() {
+    const ownChats = state.chats.filter(function (chat) { return chat.participants.includes(currentUser.id); }).sort(function (first, second) {
+      const firstMessage = first.messages[first.messages.length - 1];
+      const secondMessage = second.messages[second.messages.length - 1];
+      return String(secondMessage ? secondMessage.timestamp : second.createdAt).localeCompare(String(firstMessage ? firstMessage.timestamp : first.createdAt));
+    });
+    const active = ownChats.find(function (chat) { return chat.id === state.activeChatId; }) || ownChats[0];
+    if (active) {
+      active.messages.forEach(function (message) {
+        if (message.receiverId === currentUser.id) message.readBy = Array.from(new Set((message.readBy || []).concat(currentUser.id)));
+      });
+      persistChats();
+      state.activeChatId = active.id;
+    }
+    const dialogItems = ownChats.length ? ownChats.map(function (chat) {
+      const partnerId = chatPartner(chat);
+      const last = chat.messages[chat.messages.length - 1];
+      const unread = chat.messages.filter(function (message) { return message.receiverId === currentUser.id && !(message.readBy || []).includes(currentUser.id); }).length;
+      const partnerName = getUserName(partnerId, chat.partnerName);
+      return '<button class="dialog-item ' + (active && active.id === chat.id ? 'is-active' : '') + '" type="button" data-action="open-chat" data-id="' + escapeHTML(chat.id) + '">' + avatar(partnerName, '#7886ed', 'avatar-small') + '<span class="dialog-item-copy"><strong>' + escapeHTML(partnerName) + '</strong><span>' + escapeHTML(last ? last.text : 'Новый диалог') + '</span></span><time>' + chatTime(last && last.timestamp) + '</time>' + (unread ? '<b class="count-badge">' + unread + '</b>' : '') + '</button>';
+    }).join('') : '<p class="muted dialog-empty">Здесь появятся ваши диалоги.</p>';
+    let conversation = '<div class="chat-empty"><span class="empty-icon">✉</span><h2>Выберите диалог</h2><p>Откройте карточку предложения и нажмите «Написать».</p></div>';
+    if (active) {
+      const partnerId = chatPartner(active);
+      const partnerName = getUserName(partnerId, active.partnerName);
+      const offer = state.offers.find(function (item) { return item.id === active.offerId; });
+      conversation = '<div class="chat-header">' + avatar(partnerName, '#7886ed') + '<div><h2>' + escapeHTML(partnerName) + '</h2><p>' + escapeHTML(offer ? offer.teach + ' ↔ ' + offer.learn : 'Обмен навыками') + '</p></div></div><div class="chat-messages">' + (active.messages.length ? active.messages.map(function (message) { return '<div class="chat-message ' + (message.senderId === currentUser.id ? 'is-own' : '') + '"><p>' + escapeHTML(message.text) + '</p><time>' + chatTime(message.timestamp) + '</time></div>'; }).join('') : '<p class="muted chat-no-messages">Начните разговор первым.</p>') + '</div><form class="chat-form" id="chat-form"><input name="text" required maxlength="1000" autocomplete="off" placeholder="Введите сообщение..."><button class="button button-primary" type="submit" aria-label="Отправить">➤</button></form>';
+    }
+    return '<div class="page-shell"><div class="page-title-row"><div><p class="eyebrow">Личное общение</p><h1>Сообщения</h1><p>Договоритесь об обмене навыками.</p></div></div><div class="messages-layout"><aside class="dialog-sidebar"><h2>Диалоги</h2><div class="dialog-list">' + dialogItems + '</div></aside><section class="chat-panel">' + conversation + '</section></div></div>';
+  }
+
+  function renderSupport() {
+    const ownTickets = state.support.filter(function (ticket) { return currentUser && ticket.userId === currentUser.id; }).sort(function (first, second) { return String(second.createdAt).localeCompare(String(first.createdAt)); });
+    const notice = state.supportNotice ? '<div class="success-banner"><span aria-hidden="true">✓</span><strong>Спасибо! Обращение сохранено в этом браузере.</strong></div>' : '';
+    return '<div class="page-shell"><div class="page-title-row"><div><p class="eyebrow">Помощь по SkillSwap</p><h1>Поддержка SkillSwap</h1><p>Не нашли ответ на свой вопрос? Опишите проблему, и мы постараемся помочь.</p></div></div>' + notice + '<div class="support-layout"><section class="form-panel"><h2>Обратиться в поддержку</h2><form id="support-form" novalidate><div class="form-field"><label for="support-subject">Тема</label><select id="support-subject" name="subject" required><option value="">Выберите тему</option><option>Проблема с аккаунтом</option><option>Проблема с предложением</option><option>Проблема с чатом</option><option>Проблема с совпадением</option><option>Ошибка на сайте</option><option>Другое</option></select><span class="field-error" data-error="subject"></span></div><div class="form-field"><label for="support-message">Сообщение</label><textarea id="support-message" name="message" required maxlength="1000" placeholder="Опишите вашу проблему..."></textarea><span class="field-error" data-error="message"></span></div><button class="button button-primary" type="submit">Отправить обращение</button></form></section><aside class="support-faq"><h2>Часто задаваемые вопросы</h2><details><summary>Как создать предложение?</summary><p>Авторизуйтесь и перейдите в раздел «Предложить навык».</p></details><details><summary>Как найти человека для обмена навыками?</summary><p>Используйте поиск, фильтры и карточки предложений.</p></details><details><summary>Как начать общение?</summary><p>Откройте карточку пользователя и нажмите «Написать».</p></details><details><summary>Как работает совпадение?</summary><p>Система ищет пользователей, чьи навыки и желания соответствуют друг другу.</p></details><details><summary>Сохраняются ли мои данные?</summary><p>Да. Данные сохраняются локально в браузере через localStorage.</p></details></aside></div>' + (currentUser ? '<section class="support-tickets"><h2>Мои обращения</h2>' + (ownTickets.length ? ownTickets.map(function (ticket) { return '<article class="support-ticket"><strong>#' + escapeHTML(ticket.id.slice(-6)) + '</strong><span>' + escapeHTML(ticket.subject) + '</span><small>Статус: ' + (ticket.status === 'new' ? 'Новое' : 'Решено') + '</small></article>'; }).join('') : '<p class="muted">Вы ещё не отправляли обращений.</p>') + '</section>' : '') + '</div>';
+  }
+
+  function addWriteButtons() {
+    root.querySelectorAll('.skill-card').forEach(function (card) {
+      const details = card.querySelector('[data-action="details"]');
+      if (!details) return;
+      const offer = state.offers.find(function (item) { return item.id === details.dataset.id; });
+      const userId = offer && resolveOfferUserId(offer);
+      if (!offer || !userId) return;
+      const writeButton = document.createElement('button');
+      writeButton.className = 'button button-quiet write-button';
+      writeButton.type = 'button';
+      writeButton.dataset.action = 'start-chat';
+      writeButton.dataset.userId = userId;
+      writeButton.dataset.offerId = offer.id;
+      writeButton.textContent = 'Написать';
+      details.parentElement.insertBefore(writeButton, details.nextSibling);
+    });
+  }
+
   function render() {
     updateNavigation();
     const views = { home: renderHome, explore: renderExplore, create: renderCreate, matches: renderMatches, favorites: renderFavorites, profile: renderProfile };
+    views.messages = renderMessages;
+    views.support = renderSupport;
     root.innerHTML = (views[state.view] || renderHome)();
     if (state.view === 'create') {
       root.querySelector('#offer-teach').setAttribute('list', 'skill-options');
@@ -248,6 +358,7 @@
         box.appendChild(addButton);
       });
     }
+    if (['home', 'explore', 'matches', 'favorites', 'profile'].includes(state.view)) addWriteButtons();
     root.setAttribute('aria-busy', 'false');
   }
 
@@ -367,6 +478,64 @@
     render();
   }
 
+  function startChat(userId, offerId) {
+    currentUser = storage.getCurrentUser();
+    if (!currentUser) {
+      openAuthPrompt('Чтобы написать пользователю, необходимо войти в аккаунт.');
+      return;
+    }
+    if (!userId) {
+      openAuthPrompt('Не удалось определить пользователя этого предложения.');
+      return;
+    }
+    if (userId === currentUser.id) {
+      openInfoModal('Нельзя начать чат с самим собой.');
+      return;
+    }
+    const offer = state.offers.find(function (item) { return item.id === offerId; });
+    const targetUser = getTargetUser(userId, offer);
+    if (!targetUser) {
+      openInfoModal('Пользователь этого предложения больше недоступен.');
+      return;
+    }
+    let chat = state.chats.find(function (item) { return item.participants.includes(currentUser.id) && item.participants.includes(userId); });
+    if (!chat) {
+      chat = { id: 'chat-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 7), participants: [currentUser.id, userId], partnerName: targetUser.name, offerId: offerId || null, messages: [], createdAt: new Date().toISOString() };
+      state.chats.push(chat);
+      persistChats();
+    } else if (offerId && !chat.offerId) {
+      chat.offerId = offerId;
+      persistChats();
+    }
+    state.activeChatId = chat.id;
+    goTo('messages');
+  }
+
+  function onChatSubmit(form) {
+    const text = formValue(form, 'text');
+    if (!text || !state.activeChatId) return;
+    const chat = state.chats.find(function (item) { return item.id === state.activeChatId; });
+    if (!chat) return;
+    const receiverId = chatPartner(chat);
+    chat.messages.push({ id: 'message-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 7), senderId: currentUser.id, receiverId: receiverId, text: text, timestamp: new Date().toISOString(), readBy: [currentUser.id] });
+    persistChats();
+    render();
+    const input = root.querySelector('#chat-form input[name="text"]');
+    if (input) input.focus();
+  }
+
+  function onSupportSubmit(form) {
+    const subject = formValue(form, 'subject');
+    const message = formValue(form, 'message');
+    showFieldError(form, 'subject', subject ? '' : 'Выберите тему.');
+    showFieldError(form, 'message', message ? '' : 'Опишите проблему.');
+    if (!subject || !message) return;
+    state.support.push({ id: 'ticket-' + Date.now().toString(36), userId: currentUser ? currentUser.id : 'guest', subject: subject, message: message, status: 'new', createdAt: new Date().toISOString() });
+    persistSupport();
+    state.supportNotice = true;
+    render();
+  }
+
   document.addEventListener('click', function (event) {
     const route = event.target.closest('[data-route]');
     if (route) {
@@ -398,6 +567,8 @@
     if (action.dataset.action === 'open-register') { openAuthModal('register'); return; }
     if (action.dataset.action === 'toggle-account') { document.getElementById('account-menu').classList.toggle('is-open'); return; }
     if (action.dataset.action === 'logout') { storage.clearCurrentUser(); window.location.reload(); return; }
+    if (action.dataset.action === 'start-chat') { startChat(action.dataset.userId, action.dataset.offerId); return; }
+    if (action.dataset.action === 'open-chat') { state.activeChatId = action.dataset.id; goTo('messages'); return; }
     if (action.dataset.action === 'favorite') {
       const id = action.dataset.id;
       const wasFavorite = state.favorites.includes(id);
@@ -445,6 +616,8 @@
     if (event.target.id === 'register-form') { event.preventDefault(); onAuthSubmit(event.target, true); }
     if (event.target.id === 'offer-form') { event.preventDefault(); onOfferSubmit(event.target); }
     if (event.target.id === 'profile-form') { event.preventDefault(); onProfileSubmit(event.target); }
+    if (event.target.id === 'chat-form') { event.preventDefault(); onChatSubmit(event.target); }
+    if (event.target.id === 'support-form') { event.preventDefault(); onSupportSubmit(event.target); }
   });
 
   mobileMenu.addEventListener('click', function () {

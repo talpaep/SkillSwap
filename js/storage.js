@@ -5,7 +5,9 @@
     offers: 'skillswap_offers',
     favorites: 'skillswap_favorites',
     profiles: 'skillswap_profiles',
-    settings: 'skillswap_settings'
+    settings: 'skillswap_settings',
+    chats: 'skillswap_chats',
+    support: 'skillswap_support'
   };
 
   function read(key, fallback) {
@@ -35,6 +37,8 @@
       if (window.localStorage.getItem(KEYS.favorites) === null) write(KEYS.favorites, {});
       if (window.localStorage.getItem(KEYS.profiles) === null) write(KEYS.profiles, data.demoProfiles);
       if (window.localStorage.getItem(KEYS.settings) === null) write(KEYS.settings, {});
+      if (window.localStorage.getItem(KEYS.chats) === null) write(KEYS.chats, []);
+      if (window.localStorage.getItem(KEYS.support) === null) write(KEYS.support, []);
     } catch (error) {
       console.warn('Локальное хранилище недоступно; приложение продолжит работу без сохранения.', error);
     }
@@ -65,6 +69,10 @@
   function saveProfile(userId, profile) { const profiles = getProfiles(); profiles[userId] = profile; return write(KEYS.profiles, profiles); }
   function getSettings(userId) { const settings = read(KEYS.settings, {}); return settings[userId] || { activeView: 'home', activeMood: null, filters: {} }; }
   function saveSettings(userId, value) { const settings = read(KEYS.settings, {}); settings[userId] = value; return write(KEYS.settings, settings); }
+  function getChats() { const result = read(KEYS.chats, []); return Array.isArray(result) ? result : []; }
+  function saveChats(chats) { return write(KEYS.chats, chats); }
+  function getSupport() { const result = read(KEYS.support, []); return Array.isArray(result) ? result : []; }
+  function saveSupport(tickets) { return write(KEYS.support, tickets); }
   function saveData(data) {
     return saveOffers(data.offers) && saveFavorites(data.userId, data.favorites) && saveProfile(data.userId, data.profile) && saveSettings(data.userId, data.settings);
   }
@@ -85,6 +93,10 @@
     saveProfile: saveProfile,
     getSettings: getSettings,
     saveSettings: saveSettings,
+    getChats: getChats,
+    saveChats: saveChats,
+    getSupport: getSupport,
+    saveSupport: saveSupport,
     initialize: initialize
   };
 })();
