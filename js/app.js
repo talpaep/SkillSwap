@@ -22,8 +22,12 @@
     detailOfferId: null,
     chats: storage.getChats(),
     support: storage.getSupport(),
+    reviews: storage.getReviews(),
     activeChatId: null,
-    supportNotice: false
+    supportNotice: false,
+    contactNotice: false,
+    reviewNotice: false,
+    aboutSection: 'about-platform'
   };
   const root = document.getElementById('view-root');
   const modal = document.getElementById('app-modal');
@@ -55,6 +59,7 @@
   function persistProfile() { if (currentUser && !storage.saveProfile(currentUser.id, state.profile)) showToast('Не удалось сохранить профиль.', 'error'); }
   function persistChats() { if (!storage.saveChats(state.chats)) showToast('Не удалось сохранить сообщения.', 'error'); }
   function persistSupport() { if (!storage.saveSupport(state.support)) showToast('Не удалось сохранить обращения.', 'error'); }
+  function persistReviews() { if (!storage.saveReviews(state.reviews)) showToast('Не удалось сохранить отзывы.', 'error'); }
 
   function showToast(message, kind) {
     const region = document.getElementById('toast-region');
@@ -132,7 +137,7 @@
   }
 
   function goTo(view, options) {
-    const validViews = ['home', 'explore', 'create', 'matches', 'favorites', 'profile', 'messages', 'support'];
+    const validViews = ['home', 'explore', 'create', 'matches', 'favorites', 'profile', 'messages', 'support', 'about'];
     state.view = validViews.includes(view) ? view : 'home';
     if (!currentUser && ['create', 'matches', 'favorites', 'profile'].includes(state.view)) {
       openAuthPrompt(state.view === 'create' ? 'Создайте аккаунт, чтобы предложить свой навык.' : 'Войдите, чтобы открыть персональный раздел.');
@@ -144,6 +149,12 @@
     nav.classList.remove('is-open');
     mobileMenu.setAttribute('aria-expanded', 'false');
     render();
+    if (state.view === 'about' && state.aboutSection) {
+      window.setTimeout(function () {
+        const section = document.getElementById(state.aboutSection);
+        if (section) section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 0);
+    }
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
@@ -316,6 +327,30 @@
     return '<div class="page-shell"><div class="page-title-row"><div><p class="eyebrow">Помощь по SkillSwap</p><h1>Поддержка SkillSwap</h1><p>Не нашли ответ на свой вопрос? Опишите проблему, и мы постараемся помочь.</p></div></div>' + notice + '<div class="support-layout"><section class="form-panel"><h2>Обратиться в поддержку</h2><form id="support-form" novalidate><div class="form-field"><label for="support-subject">Тема</label><select id="support-subject" name="subject" required><option value="">Выберите тему</option><option>Проблема с аккаунтом</option><option>Проблема с предложением</option><option>Проблема с чатом</option><option>Проблема с совпадением</option><option>Ошибка на сайте</option><option>Другое</option></select><span class="field-error" data-error="subject"></span></div><div class="form-field"><label for="support-message">Сообщение</label><textarea id="support-message" name="message" required maxlength="1000" placeholder="Опишите вашу проблему..."></textarea><span class="field-error" data-error="message"></span></div><button class="button button-primary" type="submit">Отправить обращение</button></form></section><aside class="support-faq"><h2>Часто задаваемые вопросы</h2><details><summary>Как создать предложение?</summary><p>Авторизуйтесь и перейдите в раздел «Предложить навык».</p></details><details><summary>Как найти человека для обмена навыками?</summary><p>Используйте поиск, фильтры и карточки предложений.</p></details><details><summary>Как начать общение?</summary><p>Откройте карточку пользователя и нажмите «Написать».</p></details><details><summary>Как работает совпадение?</summary><p>Система ищет пользователей, чьи навыки и желания соответствуют друг другу.</p></details><details><summary>Сохраняются ли мои данные?</summary><p>Да. Данные сохраняются локально в браузере через localStorage.</p></details></aside></div>' + (currentUser ? '<section class="support-tickets"><h2>Мои обращения</h2>' + (ownTickets.length ? ownTickets.map(function (ticket) { return '<article class="support-ticket"><strong>#' + escapeHTML(ticket.id.slice(-6)) + '</strong><span>' + escapeHTML(ticket.subject) + '</span><small>Статус: ' + (ticket.status === 'new' ? 'Новое' : 'Решено') + '</small></article>'; }).join('') : '<p class="muted">Вы ещё не отправляли обращений.</p>') + '</section>' : '') + '</div>';
   }
 
+  function renderAbout() {
+    const faq = [
+      ['Что такое SkillSwap?', 'SkillSwap — платформа, на которой пользователи находят друг друга для обмена знаниями, навыками и опытом.'],
+      ['Как начать пользоваться платформой?', 'Зарегистрируйся, заполни профиль, укажи навыки, которыми можешь поделиться, и найди интересующие тебя предложения.'],
+      ['Нужно ли создавать аккаунт?', 'Для профиля, создания предложений и переписки необходимо зарегистрироваться и войти в аккаунт.'],
+      ['Как найти человека для обмена навыками?', 'Воспользуйся каталогом, поиском и фильтрами, чтобы найти подходящего пользователя.'],
+      ['Как написать другому пользователю?', 'Открой предложение пользователя и нажми «Написать». Откроется соответствующий диалог.'],
+      ['Можно ли предлагать собственные навыки?', 'Да. Заполни профиль и создай предложение, описав навык, которым готов поделиться.'],
+      ['Нужно ли ждать ответа, чтобы начать переписку?', 'Нет. Авторизованный пользователь может самостоятельно начать диалог и отправить сообщение.'],
+      ['Что делать, если возникла проблема?', 'Перейди в раздел «Поддержка» и опиши проблему в форме обращения.']
+    ];
+    const steps = [
+      ['01', 'Создай профиль', 'Расскажи о своих навыках, интересах и том, чему хочешь научиться.', '✦'],
+      ['02', 'Найди своего человека', 'Изучай предложения сообщества и используй поиск с фильтрами.', '⌕'],
+      ['03', 'Начни общение', 'Напиши выбранному пользователю через встроенные диалоги.', '↗'],
+      ['04', 'Обменивайся знаниями', 'Договоритесь о формате и развивайтесь в своём ритме.', '⇄']
+    ];
+    const benefits = ['Обмен навыками между пользователями', 'Единомышленники по интересам', 'Поиск по навыкам и форматам', 'Встроенные личные сообщения', 'Возможность делиться опытом', 'Практика через совместную деятельность'];
+    const reviews = state.reviews.slice().sort(function (first, second) { return String(second.createdAt).localeCompare(String(first.createdAt)); });
+    const reviewNotice = state.reviewNotice ? '<div class="success-banner"><span aria-hidden="true">✓</span><strong>Спасибо! Отзыв сохранён в этом браузере.</strong></div>' : '';
+    const reviewForm = currentUser ? '<form id="review-form" class="about-review-form" novalidate><div class="form-field"><label for="review-rating">Оценка</label><select id="review-rating" name="rating" required><option value="">Выберите оценку</option><option value="5">5 — отлично</option><option value="4">4 — хорошо</option><option value="3">3 — нормально</option><option value="2">2 — есть вопросы</option><option value="1">1 — нужно улучшить</option></select></div><div class="form-field"><label for="review-text">Ваш отзыв</label><textarea id="review-text" name="text" required maxlength="500" placeholder="Расскажите о своём опыте..."></textarea><span class="field-error" data-error="text"></span></div><button class="button button-primary" type="submit">Оставить отзыв</button></form>' : '<p class="muted">Отзывы могут оставлять авторизованные пользователи.</p><button class="button button-secondary" type="button" data-action="open-login">Войти, чтобы оставить отзыв</button>';
+    return '<div class="about-page"><section class="about-hero page-shell"><div class="about-hero-copy"><p class="eyebrow">Пространство для взаимного роста</p><h1>SkillSwap — обменивайся навыками, делись опытом, развивайся вместе</h1><p>Находи людей, у которых можно научиться новому, и делись собственными знаниями.</p><div class="hero-actions"><button class="button button-primary" type="button" data-route="explore">Начать обмен <span aria-hidden="true">→</span></button><button class="button button-secondary" type="button" data-about-scroll="about-platform">Как это работает <span aria-hidden="true">↓</span></button></div></div><div class="about-hero-art" aria-label="Схема обмена навыками"><div class="about-orbit about-orbit-a"><span>Дизайн</span><b>↗</b></div><div class="about-orbit about-orbit-b"><span>Английский</span><b>↙</b></div><div class="about-art-center">⇄<small>обмен</small></div><div class="about-art-tag">люди · навыки · опыт</div></div></section><nav class="about-subnav" aria-label="Разделы о SkillSwap"><div><a href="#about-platform" data-route="about" data-about-section="about-platform">О платформе</a><a href="#about-faq" data-route="about" data-about-section="about-faq">FAQ</a><a href="#about-contacts" data-route="about" data-about-section="about-contacts">Контакты</a><a href="#about-reviews" data-route="about" data-about-section="about-reviews">Отзывы</a></div></nav><section class="page-shell about-section" id="about-platform"><div class="about-intro"><div><p class="eyebrow">Что такое SkillSwap?</p><h2>Знания растут, когда ими делятся</h2></div><p>SkillSwap — платформа для поиска людей, обмена навыками, общения и совместного обучения. Здесь можно предложить свои умения, найти подходящего собеседника и развиваться через взаимность.</p></div><div class="about-section-heading"><p class="eyebrow">Путь от интереса к обмену</p><h2>Как работает платформа</h2></div><div class="about-steps">' + steps.map(function (step) { return '<article class="about-step"><span class="about-step-icon">' + step[3] + '</span><small>' + step[0] + '</small><h3>' + step[1] + '</h3><p>' + step[2] + '</p></article>'; }).join('') + '</div><div class="about-section-heading"><p class="eyebrow">Зачем присоединяться</p><h2>Преимущества SkillSwap</h2></div><div class="benefits-grid">' + benefits.map(function (benefit, index) { return '<article class="benefit-item"><span>' + ['✦', '◌', '⌕', '✉', '↗', '⇄'][index] + '</span><strong>' + benefit + '</strong></article>'; }).join('') + '</div></section><section class="page-shell about-section" id="about-faq"><div class="about-section-heading"><p class="eyebrow">Ответы рядом</p><h2>Часто задаваемые вопросы</h2><p>Коротко о том, как устроен обмен навыками.</p></div><div class="about-faq-list">' + faq.map(function (item) { return '<details><summary>' + item[0] + '<span aria-hidden="true">+</span></summary><p>' + item[1] + '</p></details>'; }).join('') + '</div></section><section class="page-shell about-section" id="about-contacts"><div class="about-section-heading"><p class="eyebrow">Мы на связи</p><h2>Свяжитесь с нами</h2><p>Не нашли ответ? Опишите вопрос, и обращение сохранится в этом браузере для вашего аккаунта.</p></div>' + (state.contactNotice ? '<div class="success-banner"><span aria-hidden="true">✓</span><strong>Обращение сохранено в этом браузере.</strong></div>' : '') + '<div class="contact-layout"><div class="contact-card"><span class="contact-card-icon">✉</span><h3>Контактный адрес</h3><p>Публичный email команды пока не настроен. Используйте форму — она сохранит обращение локально.</p><a class="button button-quiet" href="#support" data-route="support">Открыть поддержку</a></div><form id="contact-form" class="form-panel about-contact-form" novalidate><div class="form-grid"><div class="form-field"><label for="contact-name">Имя</label><input id="contact-name" name="name" required value="' + escapeHTML(currentUser ? state.profile.name : '') + '"><span class="field-error" data-error="name"></span></div><div class="form-field"><label for="contact-email">Электронная почта</label><input id="contact-email" name="email" type="email" required value="' + escapeHTML(currentUser ? currentUser.email : '') + '"><span class="field-error" data-error="email"></span></div><div class="form-field full"><label for="contact-subject">Тема обращения</label><select id="contact-subject" name="subject" required><option value="">Выберите тему</option><option>Вопрос о платформе</option><option>Проблема с аккаунтом</option><option>Предложение по улучшению</option><option>Другое</option></select><span class="field-error" data-error="subject"></span></div><div class="form-field full"><label for="contact-message">Сообщение</label><textarea id="contact-message" name="message" required maxlength="1000" placeholder="Напишите нам..."></textarea><span class="field-error" data-error="message"></span></div></div><button class="button button-primary" type="submit">Отправить сообщение</button></form></div></section><section class="page-shell about-section" id="about-reviews"><div class="about-section-heading"><p class="eyebrow">Опыт сообщества</p><h2>Отзывы пользователей</h2><p>Демо-отзывы отмечены как примеры. Новые отзывы сохраняются локально.</p></div>' + reviewNotice + '<div class="reviews-grid">' + reviews.map(function (review) { return '<article class="review-card"><div class="review-top">' + avatar(review.author, '#7886ed', 'avatar-small') + '<div><strong>' + escapeHTML(review.author) + '</strong><time>' + new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(review.createdAt)) + '</time></div></div><div class="review-stars" aria-label="Оценка: ' + review.rating + ' из 5">' + '★'.repeat(Number(review.rating || 0)) + '<span>' + '★'.repeat(5 - Number(review.rating || 0)) + '</span></div><p>' + escapeHTML(review.text) + '</p>' + (review.demo ? '<small class="review-demo-label">Демо-отзыв</small>' : '') + '</article>'; }).join('') + '</div><div class="review-form-panel"><h3>Оставить отзыв</h3>' + reviewForm + '</div></section><section class="about-cta" id="about-join"><div><p class="eyebrow">Твоя следующая история</p><h2>Готов поделиться знаниями и освоить что-то новое?</h2><p>Присоединяйся к SkillSwap, находи единомышленников и развивайся вместе с другими.</p></div><button class="button button-primary" type="button" data-action="about-join">Присоединиться <span aria-hidden="true">→</span></button></section></div>';
+  }
+
   function addWriteButtons() {
     root.querySelectorAll('.skill-card').forEach(function (card) {
       const details = card.querySelector('[data-action="details"]');
@@ -336,7 +371,7 @@
 
   function render() {
     updateNavigation();
-    const views = { home: renderHome, explore: renderExplore, create: renderCreate, matches: renderMatches, favorites: renderFavorites, profile: renderProfile };
+    const views = { home: renderHome, explore: renderExplore, create: renderCreate, matches: renderMatches, favorites: renderFavorites, profile: renderProfile, about: renderAbout };
     views.messages = renderMessages;
     views.support = renderSupport;
     root.innerHTML = (views[state.view] || renderHome)();
@@ -536,13 +571,60 @@
     render();
   }
 
+  function onContactSubmit(form) {
+    const name = formValue(form, 'name');
+    const email = formValue(form, 'email').toLocaleLowerCase('ru');
+    const subject = formValue(form, 'subject');
+    const message = formValue(form, 'message');
+    const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    showFieldError(form, 'name', name ? '' : 'Укажите имя.');
+    showFieldError(form, 'email', emailValid ? '' : 'Укажите корректный email.');
+    showFieldError(form, 'subject', subject ? '' : 'Выберите тему.');
+    showFieldError(form, 'message', message ? '' : 'Напишите сообщение.');
+    if (!name || !emailValid || !subject || !message) return;
+    state.support.push({ id: 'contact-' + Date.now().toString(36), userId: currentUser ? currentUser.id : 'guest', name: name, email: email, subject: 'Контакты: ' + subject, message: message, status: 'new', createdAt: new Date().toISOString() });
+    persistSupport();
+    state.contactNotice = true;
+    state.aboutSection = 'about-contacts';
+    render();
+  }
+
+  function onReviewSubmit(form) {
+    if (!currentUser) { openAuthPrompt('Чтобы оставить отзыв, необходимо войти в аккаунт.'); return; }
+    const rating = formValue(form, 'rating');
+    const text = formValue(form, 'text');
+    showFieldError(form, 'text', text ? '' : 'Напишите отзыв.');
+    if (!rating || !text) return;
+    state.reviews.push({ id: 'review-' + Date.now().toString(36), userId: currentUser.id, author: state.profile.name || currentUser.name, text: text, rating: Number(rating), createdAt: new Date().toISOString(), demo: false });
+    persistReviews();
+    state.reviewNotice = true;
+    state.aboutSection = 'about-reviews';
+    render();
+  }
+
   document.addEventListener('click', function (event) {
     const route = event.target.closest('[data-route]');
     if (route) {
       event.preventDefault();
       if (route.dataset.route === 'explore-reset') clearFilters();
-      else goTo(route.dataset.route);
+      else {
+        if (route.dataset.aboutSection) state.aboutSection = route.dataset.aboutSection;
+        goTo(route.dataset.route);
+      }
       return;
+    }
+    const aboutScroll = event.target.closest('[data-about-scroll]');
+    if (aboutScroll) {
+      state.aboutSection = aboutScroll.dataset.aboutScroll;
+      const section = document.getElementById(state.aboutSection);
+      if (section) section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      return;
+    }
+    const faqSummary = event.target.closest('.about-faq-list summary');
+    if (faqSummary) {
+      document.querySelectorAll('.about-faq-list details').forEach(function (item) {
+        if (item !== faqSummary.parentElement) item.removeAttribute('open');
+      });
     }
     const mood = event.target.closest('[data-mood]');
     if (mood) {
@@ -569,6 +651,7 @@
     if (action.dataset.action === 'logout') { storage.clearCurrentUser(); window.location.reload(); return; }
     if (action.dataset.action === 'start-chat') { startChat(action.dataset.userId, action.dataset.offerId); return; }
     if (action.dataset.action === 'open-chat') { state.activeChatId = action.dataset.id; goTo('messages'); return; }
+    if (action.dataset.action === 'about-join') { if (currentUser) goTo('explore'); else openAuthModal('register'); return; }
     if (action.dataset.action === 'favorite') {
       const id = action.dataset.id;
       const wasFavorite = state.favorites.includes(id);
@@ -618,6 +701,8 @@
     if (event.target.id === 'profile-form') { event.preventDefault(); onProfileSubmit(event.target); }
     if (event.target.id === 'chat-form') { event.preventDefault(); onChatSubmit(event.target); }
     if (event.target.id === 'support-form') { event.preventDefault(); onSupportSubmit(event.target); }
+    if (event.target.id === 'contact-form') { event.preventDefault(); onContactSubmit(event.target); }
+    if (event.target.id === 'review-form') { event.preventDefault(); onReviewSubmit(event.target); }
   });
 
   mobileMenu.addEventListener('click', function () {

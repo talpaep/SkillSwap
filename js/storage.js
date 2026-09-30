@@ -7,7 +7,8 @@
     profiles: 'skillswap_profiles',
     settings: 'skillswap_settings',
     chats: 'skillswap_chats',
-    support: 'skillswap_support'
+    support: 'skillswap_support',
+    reviews: 'skillswap_reviews'
   };
 
   function read(key, fallback) {
@@ -39,6 +40,7 @@
       if (window.localStorage.getItem(KEYS.settings) === null) write(KEYS.settings, {});
       if (window.localStorage.getItem(KEYS.chats) === null) write(KEYS.chats, []);
       if (window.localStorage.getItem(KEYS.support) === null) write(KEYS.support, []);
+      if (window.localStorage.getItem(KEYS.reviews) === null) write(KEYS.reviews, data.demoReviews || []);
     } catch (error) {
       console.warn('Локальное хранилище недоступно; приложение продолжит работу без сохранения.', error);
     }
@@ -73,6 +75,8 @@
   function saveChats(chats) { return write(KEYS.chats, chats); }
   function getSupport() { const result = read(KEYS.support, []); return Array.isArray(result) ? result : []; }
   function saveSupport(tickets) { return write(KEYS.support, tickets); }
+  function getReviews() { const result = read(KEYS.reviews, []); return Array.isArray(result) ? result : []; }
+  function saveReviews(reviews) { return write(KEYS.reviews, reviews); }
   function saveData(data) {
     return saveOffers(data.offers) && saveFavorites(data.userId, data.favorites) && saveProfile(data.userId, data.profile) && saveSettings(data.userId, data.settings);
   }
@@ -97,6 +101,8 @@
     saveChats: saveChats,
     getSupport: getSupport,
     saveSupport: saveSupport,
+    getReviews: getReviews,
+    saveReviews: saveReviews,
     initialize: initialize
   };
 })();

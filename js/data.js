@@ -46,5 +46,11 @@
     { id: 'people', emoji: '🤝', title: 'Хочу познакомиться и обменяться опытом', hint: 'Знакомства по интересам', categories: ['Коммуникация', 'Карьера', 'Языки'] }
   ];
 
-  window.SkillSwapData = { demoOffers: demoOffers, demoUsers: demoUsers, demoProfiles: demoProfiles, defaultProfile: defaultProfile, moods: moods };
+  const demoReviews = [
+    { id: 'demo-review-1', userId: 'demo-user-1', author: 'Алиса М.', text: 'Нашла партнёра для разговорной практики и наконец перестала бояться говорить.', rating: 5, createdAt: '2026-08-14T10:00:00.000Z', demo: true },
+    { id: 'demo-review-2', userId: 'demo-user-2', author: 'Данияр К.', text: 'Удобно искать людей с конкретным запросом и сразу договариваться о формате обмена.', rating: 5, createdAt: '2026-08-21T10:00:00.000Z', demo: true },
+    { id: 'demo-review-3', userId: 'demo-user-3', author: 'Алина Р.', text: 'Понравилось, что здесь ценится взаимность, а не просто список курсов.', rating: 4, createdAt: '2026-09-02T10:00:00.000Z', demo: true }
+  ];
+
+  window.SkillSwapData = { demoOffers: demoOffers, demoUsers: demoUsers, demoProfiles: demoProfiles, defaultProfile: defaultProfile, moods: moods, demoReviews: demoReviews };
 })();
