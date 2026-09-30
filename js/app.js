@@ -470,12 +470,16 @@
         actionButton.setAttribute('aria-label', 'Удалить предложение');
         actionButton.textContent = 'Удалить';
       } else {
+        actionButton.classList.add('report-button');
         actionButton.dataset.action = 'report-offer';
         actionButton.dataset.id = offer.id;
         actionButton.setAttribute('aria-label', 'Пожаловаться на предложение');
-        actionButton.textContent = 'Пожаловаться';
+        actionButton.title = 'Пожаловаться';
+        actionButton.textContent = '🚩';
       }
-      details.parentElement.insertBefore(actionButton, details.nextSibling);
+      const hint = details.parentElement.querySelector('.card-hint');
+      if (hint) details.parentElement.insertBefore(actionButton, hint);
+      else details.parentElement.appendChild(actionButton);
     });
   }
 
@@ -557,8 +561,11 @@
       detailButton.dataset.action = 'delete-offer';
       detailButton.textContent = 'Удалить предложение';
     } else {
+      detailButton.classList.add('report-button');
       detailButton.dataset.action = 'report-offer';
-      detailButton.textContent = 'Пожаловаться';
+      detailButton.setAttribute('aria-label', 'Пожаловаться на предложение');
+      detailButton.title = 'Пожаловаться';
+      detailButton.textContent = '🚩';
     }
     detailActions.appendChild(detailButton);
     modal.showModal();
