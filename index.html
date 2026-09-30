@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#f7f8fc" />
+    <meta name="description" content="SkillSwap — находи людей для взаимного обмена навыками." />
+    <title>SkillSwap — обмен навыками</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="css/style.css" />
+    <script defer src="js/storage.js"></script>
+    <script defer src="js/data.js"></script>
+    <script defer src="js/matching.js"></script>
+    <script defer src="js/app.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="header-inner">
+        <a class="brand" href="#home" data-route="home" aria-label="SkillSwap — главная">
+          <span class="brand-mark" aria-hidden="true"><span></span><span></span></span>
+          <span>skill<span class="brand-accent">swap</span></span>
+        </a>
+        <button class="mobile-menu-button" type="button" aria-expanded="false" aria-controls="primary-nav" aria-label="Открыть меню">
+          <span></span><span></span>
+        </button>
+        <nav class="primary-nav" id="primary-nav" aria-label="Основная навигация">
+          <a href="#home" data-route="home">Главная</a>
+          <a href="#explore" data-route="explore">Найти навык</a>
+          <a href="#create" data-route="create">Предложить</a>
+          <a href="#matches" data-route="matches">Совпадения <span class="nav-match-dot" aria-hidden="true"></span></a>
+          <a href="#favorites" data-route="favorites" class="nav-favorites">Избранное <span class="count-badge" id="favorite-count">0</span></a>
+          <a href="#profile" data-route="profile" class="profile-nav-link"><span class="nav-avatar" id="nav-avatar">А</span><span>Профиль</span></a>
+        </nav>
+      </div>
+    </header>
+
+    <main id="main-content">
+      <div id="view-root" aria-live="polite" aria-busy="true">
+        <div class="startup-loading"><span class="spinner" aria-hidden="true"></span><span>Готовим пространство для обмена…</span></div>
+      </div>
+    </main>
+
+    <footer class="site-footer">
+      <a class="brand footer-brand" href="#home" data-route="home"><span class="brand-mark" aria-hidden="true"><span></span><span></span></span><span>skill<span class="brand-accent">swap</span></span></a>
+      <span>Знания растут, когда ими делятся.</span>
+      <span class="footer-note">Сделано для любознательных <span aria-hidden="true">✳</span></span>
+    </footer>
+
+    <dialog class="modal" id="app-modal" aria-label="Подробности предложения">
+      <div class="modal-content" id="modal-content"></div>
+    </dialog>
+    <div class="toast-region" id="toast-region" role="status" aria-live="polite"></div>
+  </body>
+</html>
