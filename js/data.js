@@ -29,11 +29,11 @@
   };
 
   const defaultProfile = {
-    name: 'Анастасия',
-    city: 'Алматы',
-    about: 'Люблю узнавать новое и делиться тем, что уже умею.',
-    teachSkills: ['Photoshop'],
-    learnSkills: ['Английский'],
+    name: '',
+    city: '',
+    about: '',
+    teachSkills: [],
+    learnSkills: [],
     color: '#6575e8'
   };
 

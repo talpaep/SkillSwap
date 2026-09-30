@@ -105,7 +105,6 @@
     document.querySelectorAll('[data-route]').forEach(function (link) {
       link.classList.toggle('active', link.dataset.route === state.view);
     });
-    document.getElementById('favorite-count').textContent = String(state.favorites.length);
     const accountActions = document.getElementById('account-actions');
     if (currentUser) {
       accountActions.innerHTML = '<button class="account-button" type="button" data-action="toggle-account"><span class="nav-avatar" id="nav-avatar">' + escapeHTML(initials(state.profile.name)) + '</span><span>' + escapeHTML(state.profile.name) + '</span><span aria-hidden="true">⌄</span></button><div class="account-menu" id="account-menu"><button type="button" data-route="profile">Мой профиль</button><button type="button" data-route="profile">Мои предложения</button><button type="button" data-route="favorites">Избранное</button><button type="button" data-route="matches">Совпадения</button><button type="button" data-action="logout">Выйти</button></div>';
@@ -140,13 +139,17 @@
     return '<button class="button ' + (style || 'button-primary') + '" type="button" data-action="' + action + '">' + label + '</button>';
   }
 
+  function skillOptionsMarkup() {
+    return '<datalist id="skill-options"><option value="Программирование"></option><option value="Веб-разработка"></option><option value="Дизайн"></option><option value="Photoshop"></option><option value="Figma"></option><option value="Английский язык"></option><option value="Другие языки"></option><option value="Фотография"></option><option value="Видеомонтаж"></option><option value="Музыка"></option><option value="Гитара"></option><option value="Рисование"></option><option value="Маркетинг"></option><option value="SMM"></option><option value="Excel"></option><option value="Математика"></option><option value="Публичные выступления"></option></datalist>';
+  }
+
   function renderHome() {
     const featured = state.offers.filter(isOtherOffer).slice(0, 3);
     return '<div class="page-shell">' +
       '<section class="hero" aria-labelledby="hero-title"><div class="hero-copy"><p class="eyebrow">Обмен навыками без барьеров</p><h1 id="hero-title">Обменивайся знаниями. <span>Получай новые навыки.</span></h1><p>Ты умеешь чему-то — кто-то хочет этому научиться. Найди своего человека и растите вместе.</p><div class="hero-actions"><button class="button button-primary" type="button" data-route="explore">Найти навык <span aria-hidden="true">→</span></button><button class="button button-secondary" type="button" data-route="create">Предложить навык <span aria-hidden="true">↗</span></button></div><div class="social-proof"><span class="avatar-stack">' +
       state.offers.slice(0, 4).map(function (offer) { return avatar(offer.userName, offer.color, 'avatar-small'); }).join('') +
       '</span><span><strong>' + state.offers.filter(isOtherOffer).length + '+</strong> людей уже делятся знаниями</span></div></div>' +
-      '<div class="hero-visual" aria-label="Пример взаимного обмена"><div class="orbit-card orbit-card-back"><div class="orbit-top">' + avatar('Данияр', '#6d82dc', 'avatar-small') + '<div><p class="person-name">Данияр</p><p class="person-meta">Разговорный английский</p></div></div><div class="swap-skill"><span>Хочет научиться</span><strong>Photoshop</strong></div></div><div class="orbit-card orbit-card-front"><div class="orbit-top">' + avatar(state.profile.name, state.profile.color) + '<div><p class="person-name">' + escapeHTML(state.profile.name) + '</p><p class="person-meta">Ваш будущий партнёр</p></div></div><div class="swap-line"><div class="swap-skill"><span>Могу научить</span><strong>' + escapeHTML((state.profile.teachSkills || ['Ваш навык'])[0]) + '</strong></div><span class="swap-arrow" aria-hidden="true">⇄</span><div class="swap-skill"><span>Хочу изучить</span><strong>' + escapeHTML((state.profile.learnSkills || ['Новый навык'])[0]) + '</strong></div></div></div><div class="match-stamp"><span aria-hidden="true">✳</span> Обмен найден</div></div></section>' +
+      '<div class="hero-visual" aria-label="Пример взаимного обмена"><div class="orbit-card orbit-card-back"><div class="orbit-top">' + avatar('Данияр', '#6d82dc', 'avatar-small') + '<div><p class="person-name">Данияр</p><p class="person-meta">Разговорный английский</p></div></div><div class="swap-skill"><span>Хочет научиться</span><strong>Photoshop</strong></div></div><div class="orbit-card orbit-card-front"><div class="orbit-top">' + avatar(state.profile.name, state.profile.color) + '<div><p class="person-name">' + escapeHTML(state.profile.name) + '</p><p class="person-meta">Ваш будущий партнёр</p></div></div><div class="swap-line"><div class="swap-skill"><span>Могу научить</span><strong>' + escapeHTML((state.profile.teachSkills || [])[0] || 'Не указано') + '</strong></div><span class="swap-arrow" aria-hidden="true">⇄</span><div class="swap-skill"><small>Хочу изучить</small><strong>' + escapeHTML((state.profile.learnSkills || [])[0] || 'Не указано') + '</strong></div></div></div><div class="match-stamp"><span aria-hidden="true">✳</span> Обмен найден</div></div></section>' +
       '<section class="section-block" aria-labelledby="mood-title"><div class="section-heading"><div><p class="eyebrow">Начни с настроения</p><h2 id="mood-title">Что хочешь сегодня?</h2></div><span class="results-count">Выбери направление</span></div><div class="mood-grid">' + data.moods.map(function (mood, index) { return '<button type="button" class="mood-card" data-mood="' + mood.id + '" style="--mood-bg:' + ['#f2edff', '#e9efff', '#e7f5f2', '#fff3e4', '#ffedf0', '#e9f5df'][index] + '"><span class="mood-emoji" aria-hidden="true">' + mood.emoji + '</span><strong>' + escapeHTML(mood.title) + '</strong><span class="card-hint">' + escapeHTML(mood.hint) + '</span></button>'; }).join('') + '</div></section>' +
       '<section class="section-block"><div class="section-heading"><div><p class="eyebrow">То, что ищут чаще</p><h2>Популярные навыки</h2></div><button class="text-link" type="button" data-route="explore">Весь каталог <span aria-hidden="true">→</span></button></div><div class="popular-list">' + ['Английский', 'Дизайн интерфейсов', 'Python', 'Фотография', 'Figma', 'Гитара', 'Видеомонтаж'].map(function (skill) { return '<button type="button" class="popular-chip" data-search-skill="' + escapeHTML(skill) + '">' + escapeHTML(skill) + '</button>'; }).join('') + '</div></section>' +
       '<section class="section-block"><div class="section-heading"><div><p class="eyebrow">Встречайте друг друга</p><h2>Свежие предложения</h2></div><button class="text-link" type="button" data-route="explore">Смотреть все <span aria-hidden="true">→</span></button></div><div class="card-grid">' + featured.map(renderSkillCard).join('') + '</div></section>' +
@@ -227,6 +230,24 @@
     updateNavigation();
     const views = { home: renderHome, explore: renderExplore, create: renderCreate, matches: renderMatches, favorites: renderFavorites, profile: renderProfile };
     root.innerHTML = (views[state.view] || renderHome)();
+    if (state.view === 'create') {
+      root.querySelector('#offer-teach').setAttribute('list', 'skill-options');
+      root.querySelector('#offer-learn').setAttribute('list', 'skill-options');
+      root.insertAdjacentHTML('beforeend', skillOptionsMarkup());
+    }
+    if (state.view === 'profile') {
+      root.querySelectorAll('.profile-skill-box').forEach(function (box) {
+        const empty = box.querySelector('.muted');
+        if (!empty) return;
+        empty.textContent = 'Вы ещё не указали навыки';
+        const addButton = document.createElement('button');
+        addButton.className = 'text-link profile-add-skill';
+        addButton.type = 'button';
+        addButton.dataset.action = 'edit-profile';
+        addButton.textContent = 'Добавить навык';
+        box.appendChild(addButton);
+      });
+    }
     root.setAttribute('aria-busy', 'false');
   }
 
@@ -257,6 +278,9 @@
 
   function openProfileEditor() {
     modalContent.innerHTML = '<button class="modal-close" type="button" data-action="close-modal" aria-label="Закрыть">×</button><p class="eyebrow">Профиль сообщества</p><h2>Расскажи о себе</h2><form id="profile-form" novalidate><div class="form-grid"><div class="form-field full"><label for="profile-name">Имя</label><input id="profile-name" name="name" required maxlength="50" value="' + escapeHTML(state.profile.name) + '"><span class="field-error" data-error="name"></span></div><div class="form-field full"><label for="profile-city">Город</label><input id="profile-city" name="city" maxlength="50" value="' + escapeHTML(state.profile.city || '') + '"></div><div class="form-field full"><label for="profile-about">О себе</label><textarea id="profile-about" name="about" maxlength="220">' + escapeHTML(state.profile.about || '') + '</textarea></div><div class="form-field full"><label for="profile-teach">Могу поделиться навыками</label><input id="profile-teach" name="teachSkills" maxlength="180" value="' + escapeHTML((state.profile.teachSkills || []).join(', ')) + '"><span class="form-hint">Перечисли через запятую.</span></div><div class="form-field full"><label for="profile-learn">Хочу научиться</label><input id="profile-learn" name="learnSkills" maxlength="180" value="' + escapeHTML((state.profile.learnSkills || []).join(', ')) + '"><span class="form-hint">По этим навыкам мы найдём взаимные совпадения.</span></div></div><div class="form-actions"><button class="button button-secondary" type="button" data-action="close-modal">Отмена</button><button class="button button-primary" type="submit">Сохранить профиль</button></div></form>';
+    modalContent.querySelector('#profile-teach').setAttribute('list', 'skill-options');
+    modalContent.querySelector('#profile-learn').setAttribute('list', 'skill-options');
+    modalContent.insertAdjacentHTML('beforeend', skillOptionsMarkup());
     modal.showModal();
   }
 
@@ -388,12 +412,9 @@
     if (action.dataset.action === 'create-from-match') {
       const offer = state.offers.find(function (item) { return item.id === state.detailOfferId; });
       if (offer) {
-        state.profile.teachSkills = uniqueSkills((state.profile.teachSkills || []).concat(offer.learn));
-        state.profile.learnSkills = uniqueSkills((state.profile.learnSkills || []).concat(offer.teach));
-        persistProfile();
         modal.close();
         goTo('create');
-        showToast('Навыки добавлены в профиль. Опубликуй предложение, чтобы начать обмен.', 'success');
+        showToast('Выбери навыки для нового предложения.', 'success');
       }
     }
   });
