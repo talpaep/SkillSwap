@@ -2,7 +2,14 @@
   const storage = window.SkillSwapStorage;
   const data = window.SkillSwapData;
   const matching = window.SkillSwapMatching;
-  const initial = storage.loadData(data);
+  storage.initialize(data);
+  let currentUser = storage.getCurrentUser();
+  const initial = storage.loadData(data) || {
+    offers: storage.getOffers(),
+    favorites: [],
+    profile: Object.assign({}, data.defaultProfile),
+    settings: { activeView: 'home', activeMood: null, filters: {} }
+  };
   const state = {
     offers: initial.offers,
     favorites: initial.favorites,
@@ -36,12 +43,12 @@
 
   function saveSettings() {
     state.settings = Object.assign({}, state.settings, { activeView: state.view, activeMood: state.activeMood, filters: state.filters });
-    if (!storage.saveSettings(state.settings)) showToast('Не удалось сохранить настройки в этом браузере.', 'error');
+    if (currentUser && !storage.saveSettings(currentUser.id, state.settings)) showToast('Не удалось сохранить настройки в этом браузере.', 'error');
   }
 
   function persistOffers() { if (!storage.saveOffers(state.offers)) showToast('Не удалось сохранить предложение. Проверьте настройки браузера.', 'error'); }
-  function persistFavorites() { if (!storage.saveFavorites(state.favorites)) showToast('Не удалось сохранить избранное.', 'error'); }
-  function persistProfile() { if (!storage.saveProfile(state.profile)) showToast('Не удалось сохранить профиль.', 'error'); }
+  function persistFavorites() { if (currentUser && !storage.saveFavorites(currentUser.id, state.favorites)) showToast('Не удалось сохранить избранное.', 'error'); }
+  function persistProfile() { if (currentUser && !storage.saveProfile(currentUser.id, state.profile)) showToast('Не удалось сохранить профиль.', 'error'); }
 
   function showToast(message, kind) {
     const region = document.getElementById('toast-region');
@@ -52,20 +59,74 @@
     window.setTimeout(function () { toast.remove(); }, 3300);
   }
 
+  function openAuthModal(mode, message) {
+    const register = mode === 'register';
+    modalContent.innerHTML = '<button class="modal-close" type="button" data-action="close-modal" aria-label="Закрыть">×</button><p class="eyebrow">SkillSwap</p><h2>' + (register ? 'Создать аккаунт' : 'Войти в SkillSwap') + '</h2><p class="auth-lead">Обменивайся знаниями. Получай новые навыки.</p><form id="' + (register ? 'register-form' : 'login-form') + '" class="auth-form" novalidate>' + (register ? '<div class="form-field"><label for="auth-name">Имя</label><input id="auth-name" name="name" required autocomplete="name"><span class="field-error" data-error="name"></span></div>' : '') + '<div class="form-field"><label for="auth-email">Email</label><input id="auth-email" name="email" type="email" required autocomplete="email"><span class="field-error" data-error="email"></span></div><div class="form-field"><label for="auth-password">Пароль</label><input id="auth-password" name="password" type="password" required autocomplete="' + (register ? 'new-password' : 'current-password') + '"><span class="field-error" data-error="password"></span></div>' + (register ? '<div class="form-field"><label for="auth-confirm">Подтверждение пароля</label><input id="auth-confirm" name="confirm" type="password" required autocomplete="new-password"><span class="field-error" data-error="confirm"></span></div>' : '') + '<p class="auth-error" role="alert">' + escapeHTML(message || '') + '</p><button class="button button-primary" type="submit">' + (register ? 'Зарегистрироваться' : 'Войти') + '</button></form><p class="auth-switch">' + (register ? 'Уже есть аккаунт? ' : 'Нет аккаунта? ') + '<button type="button" data-action="' + (register ? 'open-login' : 'open-register') + '">' + (register ? 'Войти' : 'Зарегистрироваться') + '</button></p>';
+    modal.showModal();
+  }
+
+  function openAuthPrompt(message) {
+    modalContent.innerHTML = '<button class="modal-close" type="button" data-action="close-modal" aria-label="Закрыть">×</button><p class="eyebrow">Доступ участника</p><h2>' + escapeHTML(message) + '</h2><p class="auth-lead">Войдите или зарегистрируйтесь, чтобы продолжить.</p><div class="modal-actions"><button class="button button-secondary" type="button" data-action="open-login">Войти</button><button class="button button-primary" type="button" data-action="open-register">Регистрация</button></div>';
+    modal.showModal();
+  }
+
+  function onAuthSubmit(form, register) {
+    const email = formValue(form, 'email').toLocaleLowerCase('ru');
+    const password = formValue(form, 'password');
+    const users = storage.getUsers();
+    if (!register) {
+      const user = users.find(function (item) { return item.email.toLocaleLowerCase('ru') === email && item.password === password; });
+      if (!user) { openAuthModal('login', 'Неверный email или пароль'); return; }
+      storage.saveCurrentUser({ id: user.id, name: user.name, email: user.email });
+      window.location.reload();
+      return;
+    }
+    const name = formValue(form, 'name');
+    const confirm = formValue(form, 'confirm');
+    const errors = {
+      name: name ? '' : 'Имя обязательно.',
+      email: /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? '' : 'Укажи корректный email.',
+      password: password.length >= 6 ? '' : 'Минимум 6 символов.',
+      confirm: password === confirm ? '' : 'Пароли не совпадают.'
+    };
+    if (users.some(function (user) { return user.email.toLocaleLowerCase('ru') === email; })) errors.email = 'Этот email уже зарегистрирован.';
+    Object.keys(errors).forEach(function (nameKey) { showFieldError(form, nameKey, errors[nameKey]); });
+    const firstError = Object.keys(errors).find(function (nameKey) { return errors[nameKey]; });
+    if (firstError) { form.elements.namedItem(firstError).focus(); return; }
+    const user = { id: 'user-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8), name: name, email: email, password: password };
+    users.push(user);
+    storage.saveUsers(users);
+    storage.saveProfile(user.id, Object.assign({}, data.defaultProfile, { name: name, email: email }));
+    storage.saveCurrentUser({ id: user.id, name: name, email: email });
+    window.location.reload();
+  }
+
   function updateNavigation() {
     document.querySelectorAll('[data-route]').forEach(function (link) {
       link.classList.toggle('active', link.dataset.route === state.view);
     });
     document.getElementById('favorite-count').textContent = String(state.favorites.length);
-    document.getElementById('nav-avatar').textContent = initials(state.profile.name);
-    document.getElementById('nav-avatar').style.setProperty('--avatar-bg', state.profile.color || '#6575e8');
-    const exactCount = matching.findMatches(state.profile, state.offers).filter(function (offer) { return offer.match.type === 'exact'; }).length;
+    const accountActions = document.getElementById('account-actions');
+    if (currentUser) {
+      accountActions.innerHTML = '<button class="account-button" type="button" data-action="toggle-account"><span class="nav-avatar" id="nav-avatar">' + escapeHTML(initials(state.profile.name)) + '</span><span>' + escapeHTML(state.profile.name) + '</span><span aria-hidden="true">⌄</span></button><div class="account-menu" id="account-menu"><button type="button" data-route="profile">Мой профиль</button><button type="button" data-route="profile">Мои предложения</button><button type="button" data-route="favorites">Избранное</button><button type="button" data-route="matches">Совпадения</button><button type="button" data-action="logout">Выйти</button></div>';
+    } else {
+      accountActions.innerHTML = '<button class="button button-secondary header-auth-button" type="button" data-action="open-login">Войти</button><button class="button button-primary header-auth-button" type="button" data-action="open-register">Регистрация</button>';
+    }
+    const exactCount = currentUser ? matching.findMatches(state.profile, state.offers, currentUser.id).filter(function (offer) { return offer.match.type === 'exact'; }).length : 0;
     document.querySelector('.nav-match-dot').style.background = exactCount ? '#9bd557' : '#d2d4dd';
+  }
+
+  function isOtherOffer(offer) {
+    return !currentUser || (offer.userId !== currentUser.id && offer.ownerId !== 'self');
   }
 
   function goTo(view, options) {
     const validViews = ['home', 'explore', 'create', 'matches', 'favorites', 'profile'];
     state.view = validViews.includes(view) ? view : 'home';
+    if (!currentUser && ['create', 'matches', 'favorites', 'profile'].includes(state.view)) {
+      openAuthPrompt(state.view === 'create' ? 'Создайте аккаунт, чтобы предложить свой навык.' : 'Войдите, чтобы открыть персональный раздел.');
+      return;
+    }
     if (!options || !options.keepMood) state.activeMood = null;
     state.createdNotice = Boolean(options && options.created);
     saveSettings();
@@ -80,11 +141,11 @@
   }
 
   function renderHome() {
-    const featured = state.offers.filter(function (offer) { return offer.ownerId !== 'self'; }).slice(0, 3);
+    const featured = state.offers.filter(isOtherOffer).slice(0, 3);
     return '<div class="page-shell">' +
       '<section class="hero" aria-labelledby="hero-title"><div class="hero-copy"><p class="eyebrow">Обмен навыками без барьеров</p><h1 id="hero-title">Обменивайся знаниями. <span>Получай новые навыки.</span></h1><p>Ты умеешь чему-то — кто-то хочет этому научиться. Найди своего человека и растите вместе.</p><div class="hero-actions"><button class="button button-primary" type="button" data-route="explore">Найти навык <span aria-hidden="true">→</span></button><button class="button button-secondary" type="button" data-route="create">Предложить навык <span aria-hidden="true">↗</span></button></div><div class="social-proof"><span class="avatar-stack">' +
       state.offers.slice(0, 4).map(function (offer) { return avatar(offer.userName, offer.color, 'avatar-small'); }).join('') +
-      '</span><span><strong>' + state.offers.filter(function (offer) { return offer.ownerId !== 'self'; }).length + '+</strong> людей уже делятся знаниями</span></div></div>' +
+      '</span><span><strong>' + state.offers.filter(isOtherOffer).length + '+</strong> людей уже делятся знаниями</span></div></div>' +
       '<div class="hero-visual" aria-label="Пример взаимного обмена"><div class="orbit-card orbit-card-back"><div class="orbit-top">' + avatar('Данияр', '#6d82dc', 'avatar-small') + '<div><p class="person-name">Данияр</p><p class="person-meta">Разговорный английский</p></div></div><div class="swap-skill"><span>Хочет научиться</span><strong>Photoshop</strong></div></div><div class="orbit-card orbit-card-front"><div class="orbit-top">' + avatar(state.profile.name, state.profile.color) + '<div><p class="person-name">' + escapeHTML(state.profile.name) + '</p><p class="person-meta">Ваш будущий партнёр</p></div></div><div class="swap-line"><div class="swap-skill"><span>Могу научить</span><strong>' + escapeHTML((state.profile.teachSkills || ['Ваш навык'])[0]) + '</strong></div><span class="swap-arrow" aria-hidden="true">⇄</span><div class="swap-skill"><span>Хочу изучить</span><strong>' + escapeHTML((state.profile.learnSkills || ['Новый навык'])[0]) + '</strong></div></div></div><div class="match-stamp"><span aria-hidden="true">✳</span> Обмен найден</div></div></section>' +
       '<section class="section-block" aria-labelledby="mood-title"><div class="section-heading"><div><p class="eyebrow">Начни с настроения</p><h2 id="mood-title">Что хочешь сегодня?</h2></div><span class="results-count">Выбери направление</span></div><div class="mood-grid">' + data.moods.map(function (mood, index) { return '<button type="button" class="mood-card" data-mood="' + mood.id + '" style="--mood-bg:' + ['#f2edff', '#e9efff', '#e7f5f2', '#fff3e4', '#ffedf0', '#e9f5df'][index] + '"><span class="mood-emoji" aria-hidden="true">' + mood.emoji + '</span><strong>' + escapeHTML(mood.title) + '</strong><span class="card-hint">' + escapeHTML(mood.hint) + '</span></button>'; }).join('') + '</div></section>' +
       '<section class="section-block"><div class="section-heading"><div><p class="eyebrow">То, что ищут чаще</p><h2>Популярные навыки</h2></div><button class="text-link" type="button" data-route="explore">Весь каталог <span aria-hidden="true">→</span></button></div><div class="popular-list">' + ['Английский', 'Дизайн интерфейсов', 'Python', 'Фотография', 'Figma', 'Гитара', 'Видеомонтаж'].map(function (skill) { return '<button type="button" class="popular-chip" data-search-skill="' + escapeHTML(skill) + '">' + escapeHTML(skill) + '</button>'; }).join('') + '</div></section>' +
@@ -106,7 +167,7 @@
   function renderExplore() {
     const filters = state.filters;
     const categories = Array.from(new Set(state.offers.map(function (offer) { return offer.category; }))).sort(function (a, b) { return a.localeCompare(b, 'ru'); });
-    let offers = state.offers.filter(function (offer) { return offer.ownerId !== 'self'; });
+    let offers = state.offers.filter(isOtherOffer);
     if (filters.query) {
       const query = filters.query.toLocaleLowerCase('ru');
       offers = offers.filter(function (offer) { return [offer.userName, offer.teach, offer.learn, offer.category, offer.description, offer.city].join(' ').toLocaleLowerCase('ru').includes(query); });
@@ -134,7 +195,7 @@
   }
 
   function renderMatches() {
-    const ranked = matching.findMatches(state.profile, state.offers);
+    const ranked = matching.findMatches(state.profile, state.offers, currentUser && currentUser.id);
     const exact = ranked.filter(function (offer) { return offer.match.type === 'exact'; });
     const good = ranked.filter(function (offer) { return offer.match.type === 'good'; });
     const others = ranked.filter(function (offer) { return offer.match.type === 'regular'; });
@@ -155,8 +216,8 @@
   }
 
   function renderProfile() {
-    const ownOffers = state.offers.filter(function (offer) { return offer.ownerId === 'self'; });
-    const exactCount = matching.findMatches(state.profile, state.offers).filter(function (offer) { return offer.match.type === 'exact'; }).length;
+    const ownOffers = state.offers.filter(function (offer) { return currentUser && offer.userId === currentUser.id; });
+    const exactCount = matching.findMatches(state.profile, state.offers, currentUser && currentUser.id).filter(function (offer) { return offer.match.type === 'exact'; }).length;
     const teachSkills = state.profile.teachSkills || [];
     const learnSkills = state.profile.learnSkills || [];
     return '<div class="page-shell"><div class="page-title-row"><div><p class="eyebrow">Твоя страница в сообществе</p><h1>Профиль</h1><p>Здесь собраны навыки и предложения для обмена.</p></div></div><section class="profile-hero">' + avatar(state.profile.name, state.profile.color, 'avatar-large') + '<div class="profile-main"><h2>' + escapeHTML(state.profile.name) + '</h2><p>' + escapeHTML(state.profile.city || 'Город не указан') + (state.profile.about ? ' · ' + escapeHTML(state.profile.about) : '') + '</p></div><button type="button" class="button button-secondary" data-action="edit-profile">Изменить профиль <span aria-hidden="true">↗</span></button></section><div class="profile-stats"><div class="stat-box"><strong>' + ownOffers.length + '</strong><span>Моих предложений</span></div><div class="stat-box"><strong>' + exactCount + '</strong><span>Точных совпадений</span></div><div class="stat-box"><strong>' + state.favorites.length + '</strong><span>В избранном</span></div></div><div class="profile-details"><section class="profile-skill-box"><h3>Могу поделиться</h3><div class="skill-pills">' + (teachSkills.length ? teachSkills.map(function (skill) { return '<span class="skill-pill">' + escapeHTML(skill) + '</span>'; }).join('') : '<span class="muted">Добавь навык в предложении</span>') + '</div></section><section class="profile-skill-box"><h3>Хочу научиться</h3><div class="skill-pills">' + (learnSkills.length ? learnSkills.map(function (skill) { return '<span class="skill-pill wants">' + escapeHTML(skill) + '</span>'; }).join('') : '<span class="muted">Добавь интерес в предложении</span>') + '</div></section></div><div class="section-heading profile-offers-title"><div><h2>Мои предложения</h2><p>Опубликованные предложения сообщества.</p></div><button class="button button-primary" type="button" data-route="create">+ Новое</button></div>' + (ownOffers.length ? '<div class="card-grid">' + ownOffers.map(renderSkillCard).join('') + '</div>' : renderEmpty('↗', 'Ты ещё не публиковал предложения', 'Расскажи, чему можешь научить, и найди подходящего партнёра.', 'Предложить навык', 'create')) + '</div>';
@@ -170,6 +231,10 @@
   }
 
   function toggleFavorite(id) {
+    if (!currentUser) {
+      openAuthPrompt('Чтобы добавить предложение в избранное, необходимо войти в аккаунт.');
+      return;
+    }
     if (state.favorites.includes(id)) {
       state.favorites = state.favorites.filter(function (favoriteId) { return favoriteId !== id; });
       showToast('Убрали из избранного.', 'success');
@@ -222,7 +287,7 @@
     const city = formValue(form, 'city') || state.profile.city || '';
     const offer = {
       id: 'offer-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 7),
-      ownerId: 'self', userName: values.name, city: city, teach: values.teach, learn: values.learn,
+      userId: currentUser.id, ownerId: currentUser.id, userName: values.name, city: city, teach: values.teach, learn: values.learn,
       category: values.category, level: values.level, format: values.format, description: values.description,
       availability: formValue(form, 'availability'), createdAt: new Date().toISOString(), color: state.profile.color || '#6575e8'
     };
@@ -263,6 +328,8 @@
       teachSkills: uniqueSkills(formValue(form, 'teachSkills').split(',')),
       learnSkills: uniqueSkills(formValue(form, 'learnSkills').split(','))
     });
+    currentUser.name = name;
+    storage.saveCurrentUser({ id: currentUser.id, name: name, email: currentUser.email });
     persistProfile();
     modal.close();
     render();
@@ -303,6 +370,10 @@
     }
     const action = event.target.closest('[data-action]');
     if (!action) return;
+    if (action.dataset.action === 'open-login') { openAuthModal('login'); return; }
+    if (action.dataset.action === 'open-register') { openAuthModal('register'); return; }
+    if (action.dataset.action === 'toggle-account') { document.getElementById('account-menu').classList.toggle('is-open'); return; }
+    if (action.dataset.action === 'logout') { storage.clearCurrentUser(); window.location.reload(); return; }
     if (action.dataset.action === 'favorite') {
       const id = action.dataset.id;
       const wasFavorite = state.favorites.includes(id);
@@ -349,6 +420,8 @@
   });
 
   document.addEventListener('submit', function (event) {
+    if (event.target.id === 'login-form') { event.preventDefault(); onAuthSubmit(event.target, false); }
+    if (event.target.id === 'register-form') { event.preventDefault(); onAuthSubmit(event.target, true); }
     if (event.target.id === 'offer-form') { event.preventDefault(); onOfferSubmit(event.target); }
     if (event.target.id === 'profile-form') { event.preventDefault(); onProfileSubmit(event.target); }
   });

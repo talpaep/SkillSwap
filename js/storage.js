@@ -1,9 +1,11 @@
 (function () {
   const KEYS = {
-    offers: 'skillswap.offers.v1',
-    favorites: 'skillswap.favorites.v1',
-    profile: 'skillswap.profile.v1',
-    settings: 'skillswap.settings.v1'
+    users: 'skillswap_users',
+    currentUser: 'skillswap_current_user',
+    offers: 'skillswap_offers',
+    favorites: 'skillswap_favorites',
+    profiles: 'skillswap_profiles',
+    settings: 'skillswap_settings'
   };
 
   function read(key, fallback) {
@@ -28,10 +30,11 @@
 
   function initialize(data) {
     try {
+      if (window.localStorage.getItem(KEYS.users) === null) write(KEYS.users, data.demoUsers);
       if (window.localStorage.getItem(KEYS.offers) === null) write(KEYS.offers, data.demoOffers);
-      if (window.localStorage.getItem(KEYS.favorites) === null) write(KEYS.favorites, []);
-      if (window.localStorage.getItem(KEYS.profile) === null) write(KEYS.profile, data.defaultProfile);
-      if (window.localStorage.getItem(KEYS.settings) === null) write(KEYS.settings, { activeView: 'home', activeMood: null, filters: {} });
+      if (window.localStorage.getItem(KEYS.favorites) === null) write(KEYS.favorites, {});
+      if (window.localStorage.getItem(KEYS.profiles) === null) write(KEYS.profiles, data.demoProfiles);
+      if (window.localStorage.getItem(KEYS.settings) === null) write(KEYS.settings, {});
     } catch (error) {
       console.warn('Локальное хранилище недоступно; приложение продолжит работу без сохранения.', error);
     }
@@ -39,23 +42,40 @@
 
   function loadData(data) {
     initialize(data);
-    return { offers: getOffers(), favorites: getFavorites(), profile: getProfile(), settings: getSettings() };
+    const currentUser = getCurrentUser();
+    return currentUser ? {
+      offers: getOffers(),
+      favorites: getFavorites(currentUser.id),
+      profile: getProfile(currentUser.id),
+      settings: getSettings(currentUser.id)
+    } : null;
   }
 
+  function getUsers() { const result = read(KEYS.users, []); return Array.isArray(result) ? result : []; }
+  function saveUsers(users) { return write(KEYS.users, users); }
+  function getCurrentUser() { return read(KEYS.currentUser, null); }
+  function saveCurrentUser(user) { return write(KEYS.currentUser, user); }
+  function clearCurrentUser() { try { window.localStorage.removeItem(KEYS.currentUser); return true; } catch (error) { return false; } }
   function getOffers() { const result = read(KEYS.offers, []); return Array.isArray(result) ? result : []; }
   function saveOffers(offers) { return write(KEYS.offers, offers); }
-  function getFavorites() { const result = read(KEYS.favorites, []); return Array.isArray(result) ? result : []; }
-  function saveFavorites(favorites) { return write(KEYS.favorites, favorites); }
-  function getProfile() { return read(KEYS.profile, null); }
-  function saveProfile(profile) { return write(KEYS.profile, profile); }
-  function getSettings() { return read(KEYS.settings, { activeView: 'home', activeMood: null, filters: {} }); }
-  function saveSettings(settings) { return write(KEYS.settings, settings); }
+  function getFavorites(userId) { const result = read(KEYS.favorites, {}); return Array.isArray(result) ? result : (result[userId] || []); }
+  function saveFavorites(userId, favorites) { const all = read(KEYS.favorites, {}); all[userId] = favorites; return write(KEYS.favorites, all); }
+  function getProfiles() { return read(KEYS.profiles, {}); }
+  function getProfile(userId) { const profiles = getProfiles(); return profiles[userId] || null; }
+  function saveProfile(userId, profile) { const profiles = getProfiles(); profiles[userId] = profile; return write(KEYS.profiles, profiles); }
+  function getSettings(userId) { const settings = read(KEYS.settings, {}); return settings[userId] || { activeView: 'home', activeMood: null, filters: {} }; }
+  function saveSettings(userId, value) { const settings = read(KEYS.settings, {}); settings[userId] = value; return write(KEYS.settings, settings); }
   function saveData(data) {
-    return write(KEYS.offers, data.offers) && write(KEYS.favorites, data.favorites) && write(KEYS.profile, data.profile) && write(KEYS.settings, data.settings);
+    return saveOffers(data.offers) && saveFavorites(data.userId, data.favorites) && saveProfile(data.userId, data.profile) && saveSettings(data.userId, data.settings);
   }
 
   window.SkillSwapStorage = {
     loadData: loadData,
+    getUsers: getUsers,
+    saveUsers: saveUsers,
+    getCurrentUser: getCurrentUser,
+    saveCurrentUser: saveCurrentUser,
+    clearCurrentUser: clearCurrentUser,
     saveData: saveData,
     getOffers: getOffers,
     saveOffers: saveOffers,
@@ -64,6 +84,7 @@
     getProfile: getProfile,
     saveProfile: saveProfile,
     getSettings: getSettings,
-    saveSettings: saveSettings
+    saveSettings: saveSettings,
+    initialize: initialize
   };
 })();

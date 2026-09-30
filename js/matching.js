@@ -17,9 +17,9 @@
     return { type: 'regular', score: 1, label: 'В каталоге' };
   }
 
-  function findMatches(profile, offers) {
+  function findMatches(profile, offers, currentUserId) {
     return offers
-      .filter(function (offer) { return offer.ownerId !== 'self'; })
+      .filter(function (offer) { return offer.userId !== currentUserId && offer.ownerId !== 'self'; })
       .map(function (offer) { return Object.assign({}, offer, { match: scoreOffer(profile, offer) }); })
       .sort(function (first, second) {
         return second.match.score - first.match.score || String(first.userName).localeCompare(String(second.userName), 'ru');

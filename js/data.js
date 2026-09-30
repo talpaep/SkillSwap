@@ -14,6 +14,20 @@
     { id: 'demo-pavel', userName: 'Павел Д.', city: 'Алматы', teach: 'Монтаж видео', learn: 'Испанский', category: 'Фото и видео', level: 'Начинающий', format: 'Очно', description: 'Смонтируем первое короткое видео и разберёмся с базовым звуком и титрами.', availability: 'Суббота после обеда', color: '#9a79bb' }
   ];
 
+  demoOffers.forEach(function (offer, index) { offer.userId = 'demo-user-' + ((index % 3) + 1); });
+
+  const demoUsers = [
+    { id: 'demo-user-1', name: 'Алиса М.', email: 'alice@skillswap.local', password: 'demo123' },
+    { id: 'demo-user-2', name: 'Данияр К.', email: 'daniyar@skillswap.local', password: 'demo123' },
+    { id: 'demo-user-3', name: 'Алина Р.', email: 'alina@skillswap.local', password: 'demo123' }
+  ];
+
+  const demoProfiles = {
+    'demo-user-1': { name: 'Алиса М.', email: 'alice@skillswap.local', city: 'Алматы', about: 'Люблю узнавать новое и делиться тем, что уже умею.', teachSkills: ['Photoshop'], learnSkills: ['Английский'], color: '#ef8d77' },
+    'demo-user-2': { name: 'Данияр К.', email: 'daniyar@skillswap.local', city: 'Астана', about: 'Помогаю практиковать языки через живое общение.', teachSkills: ['Английский'], learnSkills: ['Photoshop'], color: '#6d82dc' },
+    'demo-user-3': { name: 'Алина Р.', email: 'alina@skillswap.local', city: 'Шымкент', about: 'Разбираю сложные задачи на небольшие проекты.', teachSkills: ['Python'], learnSkills: ['Дизайн интерфейсов'], color: '#74a78c' }
+  };
+
   const defaultProfile = {
     name: 'Анастасия',
     city: 'Алматы',
@@ -32,5 +46,5 @@
     { id: 'people', emoji: '🤝', title: 'Хочу познакомиться и обменяться опытом', hint: 'Знакомства по интересам', categories: ['Коммуникация', 'Карьера', 'Языки'] }
   ];
 
-  window.SkillSwapData = { demoOffers: demoOffers, defaultProfile: defaultProfile, moods: moods };
+  window.SkillSwapData = { demoOffers: demoOffers, demoUsers: demoUsers, demoProfiles: demoProfiles, defaultProfile: defaultProfile, moods: moods };
 })();
