@@ -494,7 +494,7 @@ h3 { margin-bottom: 8px; font-size: 17px; line-height: 1.3; }
   .primary-nav { gap: 2px; }
   .primary-nav a { padding: 0 7px; }
 }
-@media (min-width: 761px) and (max-width: 920px) {
+@media (min-width: 761px) and (max-width: 1000px) {
   .mobile-menu-button { display: flex; }
   .primary-nav { position: absolute; top: 65px; right: 16px; left: 16px; display: none; height: auto; align-items: stretch; flex-direction: column; gap: 0; padding: 8px 16px 14px; border: 0; border-bottom: 1px solid var(--line); border-radius: 0 0 14px 14px; background: var(--paper); box-shadow: 0 18px 28px rgba(35, 40, 75, .08); }
   .primary-nav.is-open { display: flex; }
@@ -1084,4 +1084,52 @@ h3 { margin-bottom: 8px; font-size: 17px; line-height: 1.3; }
 :root[data-theme="dark"] .skill-card-image { background: #292e48; }
 @media (max-width: 760px) {
   .skill-card-image { height: 175px; margin: -17px -17px 14px; }
+}
+
+.overview-shell { padding-top: 34px; }
+.overview-welcome { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 30px; overflow: hidden; margin-bottom: 30px; padding: clamp(25px, 4vw, 42px); border: 1px solid color-mix(in srgb, var(--blue) 16%, var(--line)); border-radius: 24px; background: radial-gradient(circle at 90% 15%, color-mix(in srgb, var(--blue-soft) 82%, transparent), transparent 34%), var(--paper); box-shadow: var(--shadow); }
+.overview-welcome-copy { position: relative; z-index: 1; max-width: 680px; }
+.overview-welcome-copy .eyebrow { margin-bottom: 10px; }
+.overview-welcome h1 { margin-bottom: 10px; font-size: clamp(32px, 4vw, 48px); }
+.overview-welcome-copy > p:not(.eyebrow) { max-width: 610px; margin-bottom: 22px; color: var(--muted); font-size: 15px; line-height: 1.65; }
+.overview-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.overview-summary { position: relative; z-index: 1; display: grid; flex: 0 0 min(34%, 340px); grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.overview-summary > div { display: grid; min-height: 82px; align-content: center; justify-items: center; gap: 4px; padding: 10px 7px; border: 1px solid var(--line); border-radius: 13px; background: color-mix(in srgb, var(--paper) 86%, var(--blue-soft)); text-align: center; }
+.overview-summary strong { color: var(--blue); font: 800 23px/1 'Manrope', sans-serif; }
+.overview-summary span { color: var(--muted); font-size: 10px; }
+.overview-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; gap: 18px; }
+.overview-panel { min-width: 0; padding: 22px; border: 1px solid var(--line); border-radius: 18px; background: var(--paper); box-shadow: 0 8px 25px rgba(45, 49, 90, .035); }
+.overview-panel .section-heading { align-items: center; margin-bottom: 18px; }
+.overview-panel .section-heading h2 { font-size: 21px; }
+.overview-panel .section-heading .eyebrow { margin-bottom: 6px; }
+.overview-recommendations { grid-column: 1 / -1; }
+.overview-recommendations .card-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.overview-panel .empty-state { min-height: 245px; margin: 0; padding: 25px; border: 1px dashed var(--line); border-radius: 14px; background: color-mix(in srgb, var(--paper) 85%, var(--canvas)); }
+.overview-panel .empty-state h2 { font-size: 18px; }
+.overview-panel .empty-state p { max-width: 370px; }
+.overview-panel-copy { min-height: 42px; margin: 0 0 15px; color: var(--muted); font-size: 13px; line-height: 1.6; }
+.overview-panel > .button { min-height: 38px; }
+@media (max-width: 1050px) {
+  .overview-welcome { align-items: flex-start; flex-direction: column; }
+  .overview-summary { width: min(100%, 420px); flex-basis: auto; }
+  .overview-recommendations .card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 760px) {
+  .overview-shell { padding-top: 24px; }
+  .overview-welcome { gap: 22px; margin-bottom: 20px; padding: 24px 20px; border-radius: 19px; }
+  .overview-welcome h1 { font-size: clamp(29px, 8vw, 38px); }
+  .overview-welcome-copy > p:not(.eyebrow) { font-size: 13px; }
+  .overview-actions { width: 100%; }
+  .overview-actions .button { flex: 1 1 150px; }
+  .overview-grid { grid-template-columns: 1fr; gap: 13px; }
+  .overview-recommendations { grid-column: auto; }
+  .overview-panel { padding: 17px; }
+  .overview-recommendations .card-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 420px) {
+  .overview-summary { gap: 6px; }
+  .overview-summary > div { min-height: 70px; }
+  .overview-summary strong { font-size: 20px; }
+  .overview-panel .section-heading { align-items: flex-start; gap: 10px; }
+  .overview-panel .section-heading .text-link { flex: 0 0 auto; font-size: 11px; }
 }

@@ -10,12 +10,13 @@
     profile: Object.assign({}, data.defaultProfile),
     settings: { activeView: 'home', activeMood: null, filters: {} }
   };
+  const savedView = initial.settings && initial.settings.activeView;
   const state = {
     offers: initial.offers,
     favorites: initial.favorites,
     profile: initial.profile || Object.assign({}, data.defaultProfile),
     settings: initial.settings || { activeView: 'home', activeMood: null, filters: {} },
-    view: initial.settings && initial.settings.activeView ? initial.settings.activeView : 'home',
+    view: currentUser ? (savedView && savedView !== 'home' ? savedView : 'overview') : 'home',
     filters: initial.settings && initial.settings.filters ? initial.settings.filters : {},
     createdNotice: false,
     activeMood: initial.settings && initial.settings.activeMood ? initial.settings.activeMood : null,
@@ -186,6 +187,7 @@
     storage.saveUsers(users);
     storage.saveProfile(user.id, Object.assign({}, data.defaultProfile, { name: user.name, email: user.email }));
     storage.saveCurrentUser({ id: user.id, name: user.name, email: user.email });
+    storage.saveSettings(user.id, Object.assign({}, storage.getSettings(user.id), { activeView: 'overview' }));
     state.pendingRegistration = null;
     window.location.reload();
   }
@@ -290,6 +292,7 @@
       const user = users.find(function (item) { return item.email.toLocaleLowerCase('ru') === email && item.password === password; });
       if (!user) { openAuthModal('login', 'Неверный email или пароль'); return; }
       storage.saveCurrentUser({ id: user.id, name: user.name, email: user.email });
+      storage.saveSettings(user.id, Object.assign({}, storage.getSettings(user.id), { activeView: 'overview' }));
       window.location.reload();
       return;
     }
@@ -310,6 +313,20 @@
   }
 
   function updateNavigation() {
+    const navigationItems = currentUser ? [
+      { label: 'Обзор', route: 'overview', href: '#overview' },
+      { label: 'Найти людей', route: 'explore', href: '#explore' },
+      { label: 'Обмен навыками', route: 'create', href: '#create' },
+      { label: 'Сообщения', route: 'messages', href: '#messages' },
+      { label: 'Профиль', route: 'profile', href: '#profile' }
+    ] : [
+      { label: 'Главная', route: 'home', href: '#home' },
+      { label: 'Как это работает', route: 'about', href: '#about-platform', section: 'about-platform' },
+      { label: 'Найти людей', route: 'explore', href: '#explore' }
+    ];
+    nav.innerHTML = navigationItems.map(function (item) {
+      return '<a href="' + item.href + '" data-route="' + item.route + '"' + (item.section ? ' data-about-section="' + item.section + '"' : '') + '>' + item.label + (item.route === 'matches' ? ' <span class="nav-match-dot" aria-hidden="true"></span>' : '') + '</a>';
+    }).join('');
     document.querySelectorAll('[data-route]').forEach(function (link) {
       link.classList.toggle('active', link.dataset.route === state.view);
     });
@@ -320,8 +337,11 @@
     } else {
       accountActions.innerHTML = '<button class="button button-secondary header-auth-button" type="button" data-action="open-login">Войти</button><button class="button button-primary header-auth-button" type="button" data-action="open-register">Регистрация</button>';
     }
-    const exactCount = currentUser ? matching.findMatches(state.profile, state.offers, currentUser.id).filter(function (offer) { return offer.match.type === 'exact'; }).length : 0;
-    document.querySelector('.nav-match-dot').style.background = exactCount ? '#9bd557' : '#d2d4dd';
+    const matchDot = document.querySelector('.nav-match-dot');
+    if (matchDot) {
+      const exactCount = currentUser ? matching.findMatches(state.profile, state.offers, currentUser.id).filter(function (offer) { return offer.match.type === 'exact'; }).length : 0;
+      matchDot.style.background = exactCount ? '#9bd557' : '#d2d4dd';
+    }
   }
 
   function isOtherOffer(offer) {
@@ -329,9 +349,10 @@
   }
 
   function goTo(view, options) {
-    const validViews = ['home', 'explore', 'create', 'matches', 'favorites', 'profile', 'messages', 'support', 'about'];
+    const validViews = ['home', 'overview', 'explore', 'create', 'matches', 'favorites', 'profile', 'messages', 'support', 'about'];
     state.view = validViews.includes(view) ? view : 'home';
-    if (!currentUser && ['create', 'matches', 'favorites', 'profile'].includes(state.view)) {
+    if (currentUser && state.view === 'home') state.view = 'overview';
+    if (!currentUser && ['overview', 'create', 'matches', 'favorites', 'profile', 'messages'].includes(state.view)) {
       openAuthPrompt(state.view === 'create' ? 'Создайте аккаунт, чтобы предложить свой навык.' : 'Войдите, чтобы открыть персональный раздел.');
       return;
     }
@@ -458,6 +479,23 @@
 
   function renderEmpty(icon, title, message, actionLabel, action) {
     return '<div class="empty-state"><span class="empty-icon" aria-hidden="true">' + icon + '</span><h2>' + escapeHTML(title) + '</h2><p>' + escapeHTML(message) + '</p>' + (actionLabel ? '<button class="button button-primary" type="button" data-route="' + action + '">' + escapeHTML(actionLabel) + '</button>' : '') + '</div>';
+  }
+
+  function renderOverview() {
+    const ownOffers = state.offers.filter(function (offer) { return resolveOfferUserId(offer) === currentUser.id; });
+    const ranked = matching.findMatches(state.profile, state.offers, currentUser.id);
+    const recommendations = ranked.slice(0, 3);
+    const ownChats = state.chats.filter(function (chat) { return chat.participants.includes(currentUser.id); });
+    const popularSkills = ['Английский', 'Дизайн интерфейсов', 'Python', 'Фотография', 'Figma', 'Гитара'];
+    const firstName = String(state.profile.name || currentUser.name || '').trim().split(/\s+/)[0] || 'участник';
+
+    return '<div class="page-shell overview-shell">' +
+      '<section class="overview-welcome"><div class="overview-welcome-copy"><p class="eyebrow">Твоё пространство SkillSwap</p><h1>С возвращением, ' + escapeHTML(firstName) + '!</h1><p>Найди человека, который поможет освоить новый навык, и предложи свои знания взамен.</p><div class="overview-actions"><button class="button button-primary" type="button" data-route="explore">Найти людей <span aria-hidden="true">→</span></button><button class="button button-secondary" type="button" data-route="create">Добавить свой навык <span aria-hidden="true">↗</span></button></div></div><div class="overview-summary" aria-label="Сводка активности"><div><strong>' + ownOffers.length + '</strong><span>предложения</span></div><div><strong>' + recommendations.length + '</strong><span>рекомендации</span></div><div><strong>' + ownChats.length + '</strong><span>диалоги</span></div></div></section>' +
+      '<div class="overview-grid">' +
+        '<section class="overview-panel overview-recommendations"><div class="section-heading"><div><p class="eyebrow">Подбор для тебя</p><h2>Рекомендации</h2></div><button class="text-link" type="button" data-route="matches">Все совпадения <span aria-hidden="true">→</span></button></div>' + (recommendations.length ? '<div class="card-grid">' + recommendations.map(function (offer) { return renderSkillCard(offer, offer.match); }).join('') + '</div>' : renderEmpty('⌕', 'Пока нет рекомендаций', 'Загляни в каталог — новые предложения появляются в сообществе.', 'Найти людей', 'explore')) + '</section>' +
+        '<section class="overview-panel"><div class="section-heading"><div><p class="eyebrow">Продолжай общение</p><h2>Сообщения</h2></div><button class="text-link" type="button" data-route="messages">Открыть <span aria-hidden="true">→</span></button></div><p class="overview-panel-copy">' + (ownChats.length ? 'У тебя ' + ownChats.length + ' диалог(а). Продолжай договариваться об обмене.' : 'Здесь появятся диалоги с участниками, с которыми ты начнёшь обмен.') + '</p><button class="button button-secondary" type="button" data-route="' + (ownChats.length ? 'messages' : 'explore') + '">' + (ownChats.length ? 'Перейти к сообщениям' : 'Найти партнёра') + '</button></section>' +
+        '<section class="overview-panel"><div class="section-heading"><div><p class="eyebrow">Идеи для обмена</p><h2>Популярные навыки</h2></div></div><div class="popular-list">' + popularSkills.map(function (skill) { return '<button type="button" class="popular-chip" data-search-skill="' + escapeHTML(skill) + '">' + escapeHTML(skill) + '</button>'; }).join('') + '</div></section>' +
+      '</div></div>';
   }
 
   function renderExplore() {
@@ -671,7 +709,7 @@
 
   function render() {
     updateNavigation();
-    const views = { home: renderHome, explore: renderExplore, create: renderCreate, matches: renderMatches, favorites: renderFavorites, profile: renderProfile, about: renderAbout };
+    const views = { home: renderHome, overview: renderOverview, explore: renderExplore, create: renderCreate, matches: renderMatches, favorites: renderFavorites, profile: renderProfile, about: renderAbout };
     views.messages = renderMessages;
     views.support = renderSupport;
     root.innerHTML = (views[state.view] || renderHome)();
