@@ -3,6 +3,7 @@
     users: 'skillswap_users',
     currentUser: 'skillswap_current_user',
     offers: 'skillswap_offers',
+    demoOfferVersion: 'skillswap_demo_offer_version',
     favorites: 'skillswap_favorites',
     profiles: 'skillswap_profiles',
     settings: 'skillswap_settings',
@@ -35,9 +36,41 @@
   function initialize(data) {
     try {
       if (window.localStorage.getItem(KEYS.users) === null) write(KEYS.users, data.demoUsers);
-      if (window.localStorage.getItem(KEYS.offers) === null) write(KEYS.offers, data.demoOffers);
+      if (window.localStorage.getItem(KEYS.offers) === null) {
+        if (write(KEYS.offers, data.demoOffers)) window.localStorage.setItem(KEYS.demoOfferVersion, '8');
+      } else if (window.localStorage.getItem(KEYS.demoOfferVersion) !== '8') {
+        const storedOffers = read(KEYS.offers, []);
+        if (Array.isArray(storedOffers)) {
+          const demoById = Object.create(null);
+          const foundDemoIds = new Set();
+          data.demoOffers.forEach(function (offer) { demoById[offer.id] = offer; });
+          const migratedOffers = storedOffers.map(function (offer) {
+            if (!demoById[offer.id]) return offer;
+            foundDemoIds.add(offer.id);
+            return demoById[offer.id];
+          });
+          data.demoOffers.forEach(function (offer) {
+            if (!foundDemoIds.has(offer.id)) migratedOffers.push(offer);
+          });
+          if (write(KEYS.offers, migratedOffers)) window.localStorage.setItem(KEYS.demoOfferVersion, '8');
+        }
+      }
+      const storedUsers = read(KEYS.users, []);
+      if (Array.isArray(storedUsers)) {
+        const knownUserIds = new Set(storedUsers.map(function (user) { return user.id; }));
+        const missingUsers = data.demoUsers.filter(function (user) { return !knownUserIds.has(user.id); });
+        if (missingUsers.length) write(KEYS.users, storedUsers.concat(missingUsers));
+      }
       if (window.localStorage.getItem(KEYS.favorites) === null) write(KEYS.favorites, {});
       if (window.localStorage.getItem(KEYS.profiles) === null) write(KEYS.profiles, data.demoProfiles);
+      else {
+        const storedProfiles = read(KEYS.profiles, {});
+        const missingProfiles = data.demoUsers.reduce(function (profiles, user) {
+          if (!storedProfiles[user.id] && data.demoProfiles[user.id]) profiles[user.id] = data.demoProfiles[user.id];
+          return profiles;
+        }, {});
+        if (Object.keys(missingProfiles).length) write(KEYS.profiles, Object.assign({}, storedProfiles, missingProfiles));
+      }
       if (window.localStorage.getItem(KEYS.settings) === null) write(KEYS.settings, {});
       if (window.localStorage.getItem(KEYS.chats) === null) write(KEYS.chats, []);
       if (window.localStorage.getItem(KEYS.support) === null) write(KEYS.support, []);

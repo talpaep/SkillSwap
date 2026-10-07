@@ -10,8 +10,8 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="css/style.css" />
-    <script defer src="js/storage.js"></script>
-    <script defer src="js/data.js"></script>
+    <script defer src="js/storage.js?v=8"></script>
+    <script defer src="js/data.js?v=8"></script>
     <script defer src="js/matching.js"></script>
     <script defer src="js/app.js"></script>
   </head>
@@ -32,6 +32,10 @@
           <a href="#matches" data-route="matches">Совпадения <span class="nav-match-dot" aria-hidden="true"></span></a>
           <a href="#about" data-route="about">О SkillSwap</a>
         </nav>
+        <div class="theme-switch" id="theme-switch" role="group" aria-label="Цветовая тема">
+          <button type="button" data-theme-choice="light" aria-pressed="true">Светлая</button>
+          <button type="button" data-theme-choice="dark" aria-pressed="false">Тёмная</button>
+        </div>
         <div class="account-actions" id="account-actions" aria-label="Аккаунт"></div>
       </div>
     </header>
@@ -51,7 +55,7 @@
       <a href="#about-contacts" data-route="about" data-about-section="about-contacts">Контакты</a>
       <a href="#about-reviews" data-route="about" data-about-section="about-reviews">Отзывы</a>
       <span>© 2026 SkillSwap</span>
-      <span class="footer-note">Сделано для любознательных <span aria-hidden="true">✳</span></span>
+      <span class="footer-note">Сделано для любознательных</span>
     </footer>
 
     <dialog class="modal" id="app-modal" aria-label="Подробности предложения">

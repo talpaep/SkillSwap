@@ -29,13 +29,36 @@
     contactNotice: false,
     reviewNotice: false,
     aboutSection: 'about-platform',
-    pendingDeleteOfferId: null
+    pendingDeleteOfferId: null,
+    homeFeature: 'exchange',
+    pendingRegistration: null
   };
   const root = document.getElementById('view-root');
   const modal = document.getElementById('app-modal');
   const modalContent = document.getElementById('modal-content');
   const nav = document.getElementById('primary-nav');
   const mobileMenu = document.querySelector('.mobile-menu-button');
+  const themeSwitch = document.getElementById('theme-switch');
+  const avatarPresets = data.demoOffers.slice(0, 6).map(function (offer) { return offer.avatarUrl; });
+
+  function setTheme(theme) {
+    const selectedTheme = theme === 'dark' ? 'dark' : 'light';
+    document.documentElement.dataset.theme = selectedTheme;
+    themeSwitch.querySelectorAll('[data-theme-choice]').forEach(function (button) {
+      button.setAttribute('aria-pressed', String(button.dataset.themeChoice === selectedTheme));
+    });
+    const themeColor = document.querySelector('meta[name="theme-color"]');
+    if (themeColor) themeColor.content = selectedTheme === 'dark' ? '#171923' : '#f7f8fc';
+    try { window.localStorage.setItem('skillswap_theme', selectedTheme); } catch (error) {}
+  }
+
+  let savedTheme = 'light';
+  try { savedTheme = window.localStorage.getItem('skillswap_theme') || 'light'; } catch (error) {}
+  setTheme(savedTheme);
+  themeSwitch.addEventListener('click', function (event) {
+    const button = event.target.closest('[data-theme-choice]');
+    if (button) setTheme(button.dataset.themeChoice);
+  });
 
   function escapeHTML(value) {
     return String(value == null ? '' : value).replace(/[&<>"']/g, function (character) {
@@ -47,8 +70,15 @@
     return String(name || '?').trim().split(/\s+/).slice(0, 2).map(function (part) { return part.charAt(0); }).join('').toLocaleUpperCase('ru');
   }
 
-  function avatar(name, color, size) {
-    return '<span class="avatar ' + (size || '') + '" style="--avatar-bg:' + escapeHTML(color || '#7886ed') + '" aria-hidden="true">' + escapeHTML(initials(name)) + '</span>';
+  function avatar(name, color, size, imageUrl) {
+    const ownProfileImage = currentUser && state.profile.name === name ? state.profile.avatarUrl : '';
+    const matchedUser = storage.getUsers().find(function (user) { return user.name === name; });
+    const matchedProfile = matchedUser && storage.getProfile(matchedUser.id);
+    const matchedOffer = state.offers.find(function (offer) { return offer.userName === name && offer.avatarUrl; });
+    const demoOffer = data.demoOffers.find(function (offer) { return offer.userName === name && offer.avatarUrl; });
+    const photo = imageUrl || ownProfileImage || (matchedProfile && matchedProfile.avatarUrl) || (matchedOffer && matchedOffer.avatarUrl) || (demoOffer && demoOffer.avatarUrl) || (!name ? avatarPresets[0] : '');
+    const content = photo ? '<img class="avatar-image" src="' + escapeHTML(photo) + '" alt="" loading="lazy">' : escapeHTML(initials(name));
+    return '<span class="avatar ' + (size || '') + '" style="--avatar-bg:' + escapeHTML(color || '#7886ed') + '" aria-hidden="true">' + content + '</span>';
   }
 
   function saveSettings() {
@@ -77,6 +107,29 @@
     const register = mode === 'register';
     modalContent.innerHTML = '<button class="modal-close" type="button" data-action="close-modal" aria-label="Закрыть">×</button><p class="eyebrow">SkillSwap</p><h2>' + (register ? 'Создать аккаунт' : 'Войти в SkillSwap') + '</h2><p class="auth-lead">Обменивайся знаниями. Получай новые навыки.</p><form id="' + (register ? 'register-form' : 'login-form') + '" class="auth-form" novalidate>' + (register ? '<div class="form-field"><label for="auth-name">Имя</label><input id="auth-name" name="name" required autocomplete="name"><span class="field-error" data-error="name"></span></div>' : '') + '<div class="form-field"><label for="auth-email">Email</label><input id="auth-email" name="email" type="email" required autocomplete="email"><span class="field-error" data-error="email"></span></div><div class="form-field"><label for="auth-password">Пароль</label><input id="auth-password" name="password" type="password" required autocomplete="' + (register ? 'new-password' : 'current-password') + '"><span class="field-error" data-error="password"></span></div>' + (register ? '<div class="form-field"><label for="auth-confirm">Подтверждение пароля</label><input id="auth-confirm" name="confirm" type="password" required autocomplete="new-password"><span class="field-error" data-error="confirm"></span></div>' : '') + '<p class="auth-error" role="alert">' + escapeHTML(message || '') + '</p><button class="button button-primary" type="submit">' + (register ? 'Зарегистрироваться' : 'Войти') + '</button></form><p class="auth-switch">' + (register ? 'Уже есть аккаунт? ' : 'Нет аккаунта? ') + '<button type="button" data-action="' + (register ? 'open-login' : 'open-register') + '">' + (register ? 'Войти' : 'Зарегистрироваться') + '</button></p>';
     modal.showModal();
+  }
+
+  function openAgreementModal() {
+    modalContent.innerHTML = '<button class="modal-close" type="button" data-action="cancel-registration" aria-label="Закрыть">×</button><p class="eyebrow">Перед началом</p><h2>Пользовательское соглашение SkillSwap</h2><div class="agreement-summary"><p>Пользуясь платформой, вы соглашаетесь:</p><ul><li>соблюдать правила использования SkillSwap;</li><li>не публиковать запрещённый или незаконный контент;</li><li>уважать других участников и правила общения;</li><li>не использовать сервис для мошенничества или введения в заблуждение;</li><li>обрабатывать и хранить данные в соответствии с политикой платформы;</li><li>нести ответственность за свои действия и опубликованные материалы.</li></ul></div><a class="agreement-full-link" href="terms.html" target="_blank" rel="noopener">Прочитать полное соглашение</a><label class="agreement-check"><input id="agreement-accept" type="checkbox"><span>Я прочитал(а) и принимаю пользовательское соглашение</span></label><div class="agreement-actions"><button class="button button-secondary" type="button" data-action="cancel-registration">Отменить регистрацию</button><button class="button button-primary" type="button" data-action="confirm-registration" disabled>Подтвердить и продолжить</button></div>';
+    modal.showModal();
+  }
+
+  function completeRegistration() {
+    const registration = state.pendingRegistration;
+    if (!registration || !modalContent.querySelector('#agreement-accept:checked')) return;
+    const users = storage.getUsers();
+    if (users.some(function (user) { return user.email.toLocaleLowerCase('ru') === registration.email; })) {
+      state.pendingRegistration = null;
+      openAuthModal('register', 'Этот email уже зарегистрирован.');
+      return;
+    }
+    const user = { id: 'user-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8), name: registration.name, email: registration.email, password: registration.password };
+    users.push(user);
+    storage.saveUsers(users);
+    storage.saveProfile(user.id, Object.assign({}, data.defaultProfile, { name: user.name, email: user.email }));
+    storage.saveCurrentUser({ id: user.id, name: user.name, email: user.email });
+    state.pendingRegistration = null;
+    window.location.reload();
   }
 
   function openAuthPrompt(message) {
@@ -194,12 +247,8 @@
     Object.keys(errors).forEach(function (nameKey) { showFieldError(form, nameKey, errors[nameKey]); });
     const firstError = Object.keys(errors).find(function (nameKey) { return errors[nameKey]; });
     if (firstError) { form.elements.namedItem(firstError).focus(); return; }
-    const user = { id: 'user-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8), name: name, email: email, password: password };
-    users.push(user);
-    storage.saveUsers(users);
-    storage.saveProfile(user.id, Object.assign({}, data.defaultProfile, { name: name, email: email }));
-    storage.saveCurrentUser({ id: user.id, name: name, email: email });
-    window.location.reload();
+    state.pendingRegistration = { name: name, email: email, password: password };
+    openAgreementModal();
   }
 
   function updateNavigation() {
@@ -209,7 +258,7 @@
     const accountActions = document.getElementById('account-actions');
     if (currentUser) {
       const unread = getUnreadCount();
-      accountActions.innerHTML = '<button class="account-button" type="button" data-action="toggle-account"><span class="nav-avatar" id="nav-avatar">' + escapeHTML(initials(state.profile.name)) + '</span><span>' + escapeHTML(state.profile.name) + '</span><span aria-hidden="true">⌄</span></button><div class="account-menu" id="account-menu"><button type="button" data-route="profile">Мой профиль</button><button type="button" data-route="profile">Мои предложения</button><button type="button" data-route="favorites">Избранное</button><button type="button" data-route="matches">Совпадения</button><button type="button" data-route="messages">Сообщения' + (unread ? ' <span class="count-badge">' + unread + '</span>' : '') + '</button><button type="button" data-route="support">Поддержка</button><button type="button" data-action="logout">Выйти</button></div>';
+      accountActions.innerHTML = '<button class="account-button" type="button" data-action="toggle-account">' + avatar(state.profile.name, state.profile.color, 'nav-avatar') + '<span>' + escapeHTML(state.profile.name) + '</span><span aria-hidden="true">⌄</span></button><div class="account-menu" id="account-menu"><button type="button" data-route="profile">Мой профиль</button><button type="button" data-route="profile">Мои предложения</button><button type="button" data-route="favorites">Избранное</button><button type="button" data-route="matches">Совпадения</button><button type="button" data-route="messages">Сообщения' + (unread ? ' <span class="count-badge">' + unread + '</span>' : '') + '</button><button type="button" data-route="support">Поддержка</button><button type="button" data-action="logout">Выйти</button></div>';
     } else {
       accountActions.innerHTML = '<button class="button button-secondary header-auth-button" type="button" data-action="open-login">Войти</button><button class="button button-primary header-auth-button" type="button" data-action="open-register">Регистрация</button>';
     }
@@ -292,24 +341,61 @@
     return new Intl.DateTimeFormat('ru-RU', { hour: '2-digit', minute: '2-digit' }).format(new Date(timestamp));
   }
 
+  function renderHeroOfferCard(offer, index) {
+    return '<article class="hero-offer-card hero-offer-card-' + (index + 1) + '"><img src="' + escapeHTML(offer.imageUrl || '') + '" alt="" loading="lazy"><div class="hero-offer-copy"><span>' + escapeHTML(offer.category) + '</span><h3>' + escapeHTML(offer.title || offer.teach) + '</h3><div>' + avatar(offer.userName, offer.color, 'avatar-small') + '<p>' + escapeHTML(offer.userName) + '</p></div></div></article>';
+  }
+
+  function renderHomeSupport() {
+    const features = [
+      { id: 'exchange', label: 'Обмен навыками', title: 'Обменивайся знаниями и навыками', description: 'Предлагай другим свои знания и находи людей, которые могут научить тебя чему-то новому.', image: data.demoOffers[0].imageUrl, tag: 'Паста ↔ английский', route: 'create', action: 'Предложить навык', person: data.demoOffers[0] },
+      { id: 'people', label: 'Поиск людей', title: 'Находи людей с похожими интересами', description: 'Общайся с пользователями, находи подходящие предложения и создавай полезные знакомства.', image: data.moods[5].photo, tag: '30 участников', route: 'explore', action: 'Найти людей', person: data.demoOffers[1] },
+      { id: 'learning', label: 'Обучение', title: 'Учись у людей с реальным опытом', description: 'Находи интересные навыки, задавай вопросы и развивайся вместе с другими пользователями.', image: data.demoOffers[3].imageUrl, tag: 'Учимся на практике', route: 'explore', action: 'Выбрать навык', person: data.demoOffers[3] },
+      { id: 'community', label: 'Сообщество', title: 'Развивайся вместе с сообществом', description: 'Общайся, помогай другим и находи людей, которым интересно то же, что и тебе.', image: data.moods[2].photo, tag: 'Навыки объединяют', route: 'about', action: 'О сообществе', person: data.demoOffers[2] }
+    ];
+    const active = features.find(function (feature) { return feature.id === state.homeFeature; }) || features[0];
+    const tabs = features.map(function (feature) {
+      const selected = feature.id === active.id;
+      return '<button id="home-tab-' + feature.id + '" class="home-feature-tab" type="button" role="tab" aria-selected="' + selected + '" aria-controls="home-feature-panel" tabindex="' + (selected ? '0' : '-1') + '" data-home-feature="' + feature.id + '">' + feature.label + '</button>';
+    }).join('');
+    const supportingCards = [
+      { title: 'Свободно делись знаниями', text: 'Создавай предложения и находи людей, которым нужны твои навыки.', image: data.demoOffers[1].imageUrl, route: 'create', action: 'Поделиться навыком' },
+      { title: 'Учись в удобном формате', text: 'Выбирай интересующие тебя предложения и договаривайся с другими пользователями.', image: data.demoOffers[9].imageUrl, route: 'explore', action: 'Смотреть предложения' }
+    ];
+    return '<section class="section-block home-support-section" aria-labelledby="home-support-title"><div class="section-heading"><div><p class="eyebrow">Рядом на каждом шаге</p><h2 id="home-support-title">Поддерживаем и помогаем</h2></div><p class="home-support-intro">От первого интереса до живого обмена опытом.</p></div><div class="home-support-shell"><div class="home-support-tabs" role="tablist" aria-label="Возможности SkillSwap">' + tabs + '</div><div id="home-feature-panel" class="home-support-panel" role="tabpanel" aria-labelledby="home-tab-' + active.id + '"><div class="home-support-copy"><p class="eyebrow">' + active.label + '</p><h3>' + active.title + '</h3><p>' + active.description + '</p><button class="button button-primary" type="button" data-route="' + active.route + '">' + active.action + ' <span aria-hidden="true">→</span></button></div><div class="home-support-art"><img src="' + escapeHTML(active.image) + '" alt="" loading="lazy"><span class="home-support-art-tag">' + escapeHTML(active.tag) + '</span><div class="home-support-person">' + avatar(active.person.userName, active.person.color, 'avatar-small') + '<span>Опыт участников</span></div></div></div></div><div class="home-support-cards">' + supportingCards.map(function (card) { return '<article class="home-support-card"><img src="' + escapeHTML(card.image) + '" alt="" loading="lazy"><div><h3>' + card.title + '</h3><p>' + card.text + '</p><button class="text-link" type="button" data-route="' + card.route + '">' + card.action + ' <span aria-hidden="true">→</span></button></div></article>'; }).join('') + '</div></section>';
+  }
+
+  function renderHomeOfferCard(offer, index) {
+    const isFavorite = state.favorites.includes(offer.id);
+    return '<article class="skill-card home-offer-card home-offer-card-' + (index + 1) + '"><div class="home-offer-image"><img src="' + escapeHTML(offer.imageUrl || '') + '" alt="" loading="lazy"><span>' + escapeHTML(offer.category) + '</span></div><div class="home-offer-content"><div class="home-offer-author">' + avatar(offer.userName, offer.color, 'avatar-small') + '<div><strong>' + escapeHTML(offer.userName) + '</strong><span>' + escapeHTML(offer.city || 'Сообщество SkillSwap') + '</span></div><button class="favorite-button ' + (isFavorite ? 'is-favorite' : '') + '" type="button" data-action="favorite" data-id="' + escapeHTML(offer.id) + '" aria-label="' + (isFavorite ? 'Убрать из избранного' : 'Добавить в избранное') + '" aria-pressed="' + isFavorite + '">' + (isFavorite ? '♥' : '♡') + '</button></div><h3>' + escapeHTML(offer.title || offer.teach) + '</h3><p class="home-offer-description">' + escapeHTML(offer.description) + '</p><div class="home-offer-swap"><div><span>Чему научу</span><strong>' + escapeHTML(offer.teach) + '</strong></div><span class="home-offer-swap-arrow" aria-hidden="true">⇄</span><div><span>Хочу взамен</span><strong>' + escapeHTML(offer.learn) + '</strong></div></div><div class="card-actions"><button class="button button-quiet" type="button" data-action="details" data-id="' + escapeHTML(offer.id) + '">Подробнее <span aria-hidden="true">↗</span></button><span class="card-hint">' + escapeHTML(offer.availability || 'Время по договорённости') + '</span></div></div></article>';
+  }
+
   function renderHome() {
-    const featured = state.offers.filter(isOtherOffer).slice(0, 3);
-    return '<div class="page-shell">' +
-      '<section class="hero" aria-labelledby="hero-title"><div class="hero-copy"><p class="eyebrow">Обмен навыками без барьеров</p><h1 id="hero-title">Обменивайся знаниями. <span>Получай новые навыки.</span></h1><p>Ты умеешь чему-то — кто-то хочет этому научиться. Найди своего человека и растите вместе.</p><div class="hero-actions"><button class="button button-primary" type="button" data-route="explore">Найти навык <span aria-hidden="true">→</span></button><button class="button button-secondary" type="button" data-route="create">Предложить навык <span aria-hidden="true">↗</span></button></div><div class="social-proof"><span class="avatar-stack">' +
-      state.offers.slice(0, 4).map(function (offer) { return avatar(offer.userName, offer.color, 'avatar-small'); }).join('') +
-      '</span><span><strong>' + state.offers.filter(isOtherOffer).length + '+</strong> людей уже делятся знаниями</span></div></div>' +
-      '<div class="hero-visual" aria-label="Пример взаимного обмена"><div class="orbit-card orbit-card-back"><div class="orbit-top">' + avatar('Данияр', '#6d82dc', 'avatar-small') + '<div><p class="person-name">Данияр</p><p class="person-meta">Разговорный английский</p></div></div><div class="swap-skill"><span>Хочет научиться</span><strong>Photoshop</strong></div></div><div class="orbit-card orbit-card-front"><div class="orbit-top">' + avatar(state.profile.name, state.profile.color) + '<div><p class="person-name">' + escapeHTML(state.profile.name) + '</p><p class="person-meta">Ваш будущий партнёр</p></div></div><div class="swap-line"><div class="swap-skill"><span>Могу научить</span><strong>' + escapeHTML((state.profile.teachSkills || [])[0] || 'Не указано') + '</strong></div><span class="swap-arrow" aria-hidden="true">⇄</span><div class="swap-skill"><small>Хочу изучить</small><strong>' + escapeHTML((state.profile.learnSkills || [])[0] || 'Не указано') + '</strong></div></div></div><div class="match-stamp"><span aria-hidden="true">✳</span> Обмен найден</div></div></section>' +
-      '<section class="section-block" aria-labelledby="mood-title"><div class="section-heading"><div><p class="eyebrow">Начни с настроения</p><h2 id="mood-title">Что хочешь сегодня?</h2></div><span class="results-count">Выбери направление</span></div><div class="mood-grid">' + data.moods.map(function (mood, index) { return '<button type="button" class="mood-card" data-mood="' + mood.id + '" style="--mood-bg:' + ['#f2edff', '#e9efff', '#e7f5f2', '#fff3e4', '#ffedf0', '#e9f5df'][index] + '"><span class="mood-emoji" aria-hidden="true">' + mood.emoji + '</span><strong>' + escapeHTML(mood.title) + '</strong><span class="card-hint">' + escapeHTML(mood.hint) + '</span></button>'; }).join('') + '</div></section>' +
+    const preferredOfferIds = ['demo-alice', 'demo-daniyar', 'demo-alina', 'demo-arman', 'demo-sofia', 'demo-maxim'];
+    const publicOffers = state.offers.filter(isOtherOffer);
+    const preferredOffers = preferredOfferIds.map(function (id) { return state.offers.find(function (offer) { return offer.id === id; }); }).filter(function (offer) { return offer && isOtherOffer(offer); });
+    const featured = preferredOffers.concat(publicOffers.filter(function (offer) { return !preferredOfferIds.includes(offer.id); })).slice(0, 6);
+    const heroOffers = featured.slice(0, 4);
+    const userCount = new Set(state.offers.map(resolveOfferUserId).filter(Boolean)).size;
+    const skillCount = new Set(state.offers.reduce(function (skills, offer) { return skills.concat([offer.teach, offer.learn]); }, []).filter(Boolean)).size;
+    const categories = ['Программирование', 'Дизайн', 'Языки', 'Готовка', 'Рукоделие', 'Музыка', 'Спорт', 'Технологии', 'Другое'];
+    const benefits = [
+      { title: 'Обмен навыками', text: 'Учи других тому, что умеешь сам.', photo: data.moods[0].photo, label: 'Передавай опыт' },
+      { title: 'Люди рядом', text: 'Находи пользователей с похожими интересами.', photo: data.moods[2].photo, label: 'Знакомься и общайся' },
+      { title: 'Взаимовыгодное обучение', text: 'Помогай другим и развивай собственные навыки.', photo: data.moods[5].photo, label: 'Расти вместе' },
+      { title: 'Умные совпадения', text: 'Находи людей, чьи навыки подходят твоим целям.', photo: data.moods[1].photo, label: 'Подбор по интересам' }
+    ];
+    return '<div class="page-shell home-shell"><section class="hero home-hero" aria-labelledby="hero-title"><div class="hero-copy"><p class="eyebrow">Сообщество взаимного обучения</p><h1 id="hero-title">Учись новому. <span>Делись тем, что умеешь.</span></h1><p>Находи людей, обменивайся навыками и развивайся вместе.</p><div class="hero-actions"><button class="button button-primary" type="button" data-route="explore">Найти навык <span aria-hidden="true">→</span></button><button class="button button-secondary" type="button" data-route="create">Предложить навык <span aria-hidden="true">↗</span></button></div><div class="home-stats"><div><strong>' + userCount + '</strong><span>участников</span></div><div><strong>' + state.offers.length + '</strong><span>предложений</span></div><div><strong>' + skillCount + '</strong><span>навыков</span></div></div><div class="home-categories" aria-label="Категории навыков">' + categories.map(function (category) { return '<button type="button" class="home-category" data-category-filter="' + escapeHTML(category) + '">' + escapeHTML(category) + '</button>'; }).join('') + '</div></div><div class="hero-visual home-hero-visual" aria-label="Предложения участников SkillSwap"><div class="hero-offer-stack">' + heroOffers.map(renderHeroOfferCard).join('') + '</div><span class="hero-stack-note">Обменивайся опытом каждый день</span></div></section>' +
+      '<section class="section-block benefit-section" aria-labelledby="benefits-title"><div class="section-heading"><div><p class="eyebrow">Учимся друг у друга</p><h2 id="benefits-title">Почему SkillSwap?</h2></div><p class="benefit-intro">Навыки, люди и взаимная поддержка — в одном сообществе.</p></div><div class="benefit-feature-grid">' + benefits.map(function (benefit, index) { return '<article class="benefit-feature benefit-feature-' + (index + 1) + '"><img src="' + escapeHTML(benefit.photo) + '" alt="" loading="lazy"><div class="benefit-feature-copy"><span>' + escapeHTML(benefit.label) + '</span><h3>' + escapeHTML(benefit.title) + '</h3><p>' + escapeHTML(benefit.text) + '</p></div></article>'; }).join('') + '</div></section>' +
+      '<section class="section-block home-offers-section" aria-labelledby="home-offers-title"><div class="section-heading"><div><p class="eyebrow">Навыки сообщества</p><h2 id="home-offers-title">Предложения участников</h2></div><button class="text-link" type="button" data-route="explore">Все предложения <span aria-hidden="true">→</span></button></div><div class="home-offers-grid">' + featured.map(renderHomeOfferCard).join('') + '</div></section>' +
+      '<section class="section-block" aria-labelledby="mood-title"><div class="section-heading"><div><p class="eyebrow">Начни с настроения</p><h2 id="mood-title">Что хочешь сегодня?</h2></div><span class="results-count">Выбери направление</span></div><div class="mood-grid">' + data.moods.map(function (mood) { return '<button type="button" class="mood-card" data-mood="' + mood.id + '"><img class="mood-photo" src="' + escapeHTML(mood.photo) + '" alt="" loading="lazy"><strong>' + escapeHTML(mood.title) + '</strong><span class="card-hint">' + escapeHTML(mood.hint) + '</span></button>'; }).join('') + '</div></section>' +
       '<section class="section-block"><div class="section-heading"><div><p class="eyebrow">То, что ищут чаще</p><h2>Популярные навыки</h2></div><button class="text-link" type="button" data-route="explore">Весь каталог <span aria-hidden="true">→</span></button></div><div class="popular-list">' + ['Английский', 'Дизайн интерфейсов', 'Python', 'Фотография', 'Figma', 'Гитара', 'Видеомонтаж'].map(function (skill) { return '<button type="button" class="popular-chip" data-search-skill="' + escapeHTML(skill) + '">' + escapeHTML(skill) + '</button>'; }).join('') + '</div></section>' +
-      '<section class="section-block"><div class="section-heading"><div><p class="eyebrow">Встречайте друг друга</p><h2>Свежие предложения</h2></div><button class="text-link" type="button" data-route="explore">Смотреть все <span aria-hidden="true">→</span></button></div><div class="card-grid">' + featured.map(renderSkillCard).join('') + '</div></section>' +
-      '<section class="section-block"><div class="section-heading"><div><p class="eyebrow">Просто и по-человечески</p><h2>Как работает обмен</h2></div></div><div class="steps-strip"><article class="step-item"><span class="step-number">01</span><h3>Расскажи о себе</h3><p>Укажи, чему можешь научить и какой навык хочешь освоить.</p></article><article class="step-item"><span class="step-number">02</span><h3>Найди совпадение</h3><p>Мы сопоставим твои интересы с предложениями сообщества.</p></article><article class="step-item"><span class="step-number">03</span><h3>Обменивайтесь</h3><p>Договоритесь о формате и учитесь друг у друга в своём ритме.</p></article></div></section>' +
-      '</div>';
+      '<section class="section-block"><div class="section-heading"><div><p class="eyebrow">Просто и по-человечески</p><h2>Как работает обмен</h2></div></div><div class="steps-strip"><article class="step-item"><span class="step-number">01</span><h3>Расскажи о себе</h3><p>Укажи, чему можешь научить и какой навык хочешь освоить.</p></article><article class="step-item"><span class="step-number">02</span><h3>Найди совпадение</h3><p>Мы сопоставим твои интересы с предложениями сообщества.</p></article><article class="step-item"><span class="step-number">03</span><h3>Обменивайтесь</h3><p>Договоритесь о формате и учитесь друг у друга в своём ритме.</p></article></div></section></div>';
   }
 
   function renderSkillCard(offer, match) {
     const isFavorite = state.favorites.includes(offer.id);
-    const matchBadge = match ? '<span class="match-badge ' + match.type + '">' + (match.type === 'exact' ? '🔥 ' : match.type === 'good' ? '✨ ' : '') + escapeHTML(match.label) + '</span>' : '';
-    return '<article class="skill-card"><div class="skill-card-top">' + avatar(offer.userName, offer.color) + '<div class="card-user"><p class="person-name">' + escapeHTML(offer.userName) + '</p><p class="card-region">' + escapeHTML(offer.city || 'Сообщество SkillSwap') + '</p></div>' + matchBadge + '<button class="favorite-button ' + (isFavorite ? 'is-favorite' : '') + '" type="button" data-action="favorite" data-id="' + escapeHTML(offer.id) + '" aria-label="' + (isFavorite ? 'Убрать из избранного' : 'Добавить в избранное') + '" aria-pressed="' + isFavorite + '">' + (isFavorite ? '♥' : '♡') + '</button></div><div class="card-skill-pair"><div class="card-skill"><small>Могу научить</small><strong>' + escapeHTML(offer.teach) + '</strong></div><div class="card-skill learn"><small>Хочу научиться</small><strong>' + escapeHTML(offer.learn) + '</strong></div></div><div class="card-meta"><span class="meta-tag">' + escapeHTML(offer.category) + '</span><span class="meta-tag">' + escapeHTML(offer.level) + '</span><span class="meta-tag">' + escapeHTML(offer.format) + '</span></div><p class="card-description">' + escapeHTML(offer.description) + '</p><div class="card-actions"><button class="button button-quiet" type="button" data-action="details" data-id="' + escapeHTML(offer.id) + '">Подробнее <span aria-hidden="true">↗</span></button><span class="card-hint">' + escapeHTML(offer.availability || 'Время по договорённости') + '</span></div></article>';
+    const matchBadge = match ? '<span class="match-badge ' + match.type + '">' + escapeHTML(match.label) + '</span>' : '';
+    return '<article class="skill-card"><div class="skill-card-image"><img src="' + escapeHTML(offer.imageUrl || '') + '" alt="" loading="lazy"><span>' + escapeHTML(offer.category) + '</span></div><div class="skill-card-top">' + avatar(offer.userName, offer.color) + '<div class="card-user"><p class="person-name">' + escapeHTML(offer.userName) + '</p><p class="card-region">' + escapeHTML(offer.city || 'Сообщество SkillSwap') + '</p></div>' + matchBadge + '<button class="favorite-button ' + (isFavorite ? 'is-favorite' : '') + '" type="button" data-action="favorite" data-id="' + escapeHTML(offer.id) + '" aria-label="' + (isFavorite ? 'Убрать из избранного' : 'Добавить в избранное') + '" aria-pressed="' + isFavorite + '">' + (isFavorite ? '♥' : '♡') + '</button></div><h3 class="catalog-offer-title">' + escapeHTML(offer.title || offer.teach) + '</h3><div class="card-skill-pair"><div class="card-skill"><small>Могу научить</small><strong>' + escapeHTML(offer.teach) + '</strong></div><div class="card-skill learn"><small>Хочу научиться</small><strong>' + escapeHTML(offer.learn) + '</strong></div></div><div class="card-meta"><span class="meta-tag">' + escapeHTML(offer.category) + '</span><span class="meta-tag">' + escapeHTML(offer.level) + '</span><span class="meta-tag">' + escapeHTML(offer.format) + '</span></div><p class="card-description">' + escapeHTML(offer.description) + '</p><div class="card-actions"><button class="button button-quiet" type="button" data-action="details" data-id="' + escapeHTML(offer.id) + '">Подробнее <span aria-hidden="true">↗</span></button><span class="card-hint">' + escapeHTML(offer.availability || 'Время по договорённости') + '</span></div></article>';
   }
 
   function renderEmpty(icon, title, message, actionLabel, action) {
@@ -356,7 +442,7 @@
       { title: 'Хорошо подходят', subtitle: 'Уже есть общая точка для начала разговора.', items: good, empty: '' },
       { title: 'Другие предложения', subtitle: 'Возможно, здесь найдётся новое направление.', items: others, empty: '' }
     ];
-    return '<div class="page-shell"><div class="page-title-row"><div><p class="eyebrow">Подбор на основе твоих навыков</p><h1>Совпадения</h1><p>Никакой случайности: только то, чем ты хочешь обменяться.</p></div></div><div class="matches-intro"><div class="matches-intro-copy"><span class="match-flower" aria-hidden="true">✳</span><div><h2>' + (exact.length ? 'Нашли совпадение!' : 'Ищем твою пару навыков') + '</h2><p>' + (exact.length ? 'Есть взаимный интерес — можно начинать обмен.' : 'Заполни оба навыка в профиле, чтобы точнее настроить подбор.') + '</p></div></div><div class="match-legend"><span class="match-badge exact">🔥 точное</span><span class="match-badge good">✨ хорошее</span></div></div>' + sections.map(function (section, index) {
+    return '<div class="page-shell"><div class="page-title-row"><div><p class="eyebrow">Подбор на основе твоих навыков</p><h1>Совпадения</h1><p>Никакой случайности: только то, чем ты хочешь обменяться.</p></div></div><div class="matches-intro"><div class="matches-intro-copy"><span class="match-flower" aria-hidden="true"></span><div><h2>' + (exact.length ? 'Нашли совпадение!' : 'Ищем твою пару навыков') + '</h2><p>' + (exact.length ? 'Есть взаимный интерес — можно начинать обмен.' : 'Заполни оба навыка в профиле, чтобы точнее настроить подбор.') + '</p></div></div><div class="match-legend"><span class="match-badge exact">Точное совпадение</span><span class="match-badge good">Хорошее совпадение</span></div></div>' + sections.map(function (section, index) {
       if (index > 0 && !section.items.length) return '';
       return '<section class="matches-section"><div class="section-heading"><div><h2>' + section.title + '</h2><p>' + section.subtitle + '</p></div><span class="results-count">' + section.items.length + '</span></div>' + (section.items.length ? '<div class="card-grid">' + section.items.map(function (offer) { return renderSkillCard(offer, offer.match); }).join('') + '</div>' : (index === 0 ? renderEmpty('⇄', 'Пока без взаимных совпадений', section.empty + ' Твои навыки: ' + ((state.profile.teachSkills || []).join(', ') || 'не указаны') + ' → ' + ((state.profile.learnSkills || []).join(', ') || 'не указаны') + '.', 'Настроить профиль', 'profile') : '')) + '</section>';
     }).join('') + '</div>';
@@ -475,7 +561,7 @@
         actionButton.dataset.id = offer.id;
         actionButton.setAttribute('aria-label', 'Пожаловаться на предложение');
         actionButton.title = 'Пожаловаться';
-        actionButton.textContent = '🚩';
+        actionButton.textContent = '⚑';
       }
       const hint = details.parentElement.querySelector('.card-hint');
       if (hint) details.parentElement.insertBefore(actionButton, hint);
@@ -503,9 +589,21 @@
     views.messages = renderMessages;
     views.support = renderSupport;
     root.innerHTML = (views[state.view] || renderHome)();
+    if (state.view === 'home') {
+      const homeOffersSection = root.querySelector('.home-offers-section');
+      if (homeOffersSection) homeOffersSection.insertAdjacentHTML('beforebegin', renderHomeSupport());
+    }
     if (state.view === 'create') {
       root.querySelector('#offer-teach').setAttribute('list', 'skill-options');
       root.querySelector('#offer-learn').setAttribute('list', 'skill-options');
+      const categorySelect = root.querySelector('#offer-category');
+      ['Программирование', 'Дизайн', 'Языки', 'Готовка', 'Рукоделие', 'Пчеловодство', 'Фотография', 'Музыка', 'Спорт', 'Садоводство', 'Технологии', 'Другое', 'Карьера', 'Фото и видео', 'Саморазвитие', 'Коммуникация', 'Хобби'].forEach(function (category) {
+        if (Array.from(categorySelect.options).some(function (option) { return option.value === category; })) return;
+        const option = document.createElement('option');
+        option.value = category;
+        option.textContent = category;
+        categorySelect.appendChild(option);
+      });
       root.insertAdjacentHTML('beforeend', skillOptionsMarkup());
     }
     if (state.view === 'profile') {
@@ -565,7 +663,7 @@
       detailButton.dataset.action = 'report-offer';
       detailButton.setAttribute('aria-label', 'Пожаловаться на предложение');
       detailButton.title = 'Пожаловаться';
-      detailButton.textContent = '🚩';
+      detailButton.textContent = '⚑';
     }
     detailActions.appendChild(detailButton);
     modal.showModal();
@@ -573,6 +671,14 @@
 
   function openProfileEditor() {
     modalContent.innerHTML = '<button class="modal-close" type="button" data-action="close-modal" aria-label="Закрыть">×</button><p class="eyebrow">Профиль сообщества</p><h2>Расскажи о себе</h2><form id="profile-form" novalidate><div class="form-grid"><div class="form-field full"><label for="profile-name">Имя</label><input id="profile-name" name="name" required maxlength="50" value="' + escapeHTML(state.profile.name) + '"><span class="field-error" data-error="name"></span></div><div class="form-field full"><label for="profile-city">Город</label><input id="profile-city" name="city" maxlength="50" value="' + escapeHTML(state.profile.city || '') + '"></div><div class="form-field full"><label for="profile-about">О себе</label><textarea id="profile-about" name="about" maxlength="220">' + escapeHTML(state.profile.about || '') + '</textarea></div><div class="form-field full"><label for="profile-teach">Могу поделиться навыками</label><input id="profile-teach" name="teachSkills" maxlength="180" value="' + escapeHTML((state.profile.teachSkills || []).join(', ')) + '"><span class="form-hint">Перечисли через запятую.</span></div><div class="form-field full"><label for="profile-learn">Хочу научиться</label><input id="profile-learn" name="learnSkills" maxlength="180" value="' + escapeHTML((state.profile.learnSkills || []).join(', ')) + '"><span class="form-hint">По этим навыкам мы найдём взаимные совпадения.</span></div></div><div class="form-actions"><button class="button button-secondary" type="button" data-action="close-modal">Отмена</button><button class="button button-primary" type="submit">Сохранить профиль</button></div></form>';
+    const avatarUrl = state.profile.avatarUrl || '';
+    const avatarOptions = avatarPresets.map(function (photo, index) {
+      return '<button class="avatar-option" type="button" data-avatar-choice="' + escapeHTML(photo) + '" aria-label="Выбрать фото ' + (index + 1) + '" aria-pressed="' + String(avatarUrl === photo) + '"><img src="' + escapeHTML(photo) + '" alt="" loading="lazy"></button>';
+    }).join('');
+    const avatarPicker = '<div class="avatar-picker"><div class="avatar-editor"><div class="avatar-preview" id="avatar-preview">' + (avatarUrl ? '<img src="' + escapeHTML(avatarUrl) + '" alt="Предпросмотр фото профиля">' : escapeHTML(initials(state.profile.name))) + '</div><div class="avatar-editor-copy"><strong>Фото профиля</strong><p>Выбери портрет или загрузи своё изображение.</p><label class="button button-secondary avatar-upload">Загрузить фото<input id="profile-avatar-file" type="file" accept="image/*"></label></div></div><div class="avatar-options" aria-label="Доступные фотографии">' + avatarOptions + '</div></div>';
+    const profileForm = modalContent.querySelector('#profile-form');
+    profileForm.dataset.avatarUrl = avatarUrl;
+    profileForm.querySelector('.form-grid').insertAdjacentHTML('beforebegin', avatarPicker);
     modalContent.querySelector('#profile-teach').setAttribute('list', 'skill-options');
     modalContent.querySelector('#profile-learn').setAttribute('list', 'skill-options');
     modalContent.insertAdjacentHTML('beforeend', skillOptionsMarkup());
@@ -644,6 +750,7 @@
       name: name,
       city: formValue(form, 'city'),
       about: formValue(form, 'about'),
+      avatarUrl: form.dataset.avatarUrl || '',
       teachSkills: uniqueSkills(formValue(form, 'teachSkills').split(',')),
       learnSkills: uniqueSkills(formValue(form, 'learnSkills').split(','))
     });
@@ -653,6 +760,44 @@
     modal.close();
     render();
     showToast('Профиль обновлён.', 'success');
+  }
+
+  function setAvatarSelection(imageUrl) {
+    const form = modalContent.querySelector('#profile-form');
+    const preview = modalContent.querySelector('#avatar-preview');
+    if (!form || !preview) return;
+    form.dataset.avatarUrl = imageUrl;
+    preview.innerHTML = imageUrl ? '<img src="' + escapeHTML(imageUrl) + '" alt="Предпросмотр фото профиля">' : escapeHTML(initials(formValue(form, 'name')));
+    modalContent.querySelectorAll('[data-avatar-choice]').forEach(function (button) {
+      button.setAttribute('aria-pressed', String(button.dataset.avatarChoice === imageUrl));
+    });
+  }
+
+  function processAvatarFile(file) {
+    if (!file) return;
+    if (!file.type.startsWith('image/')) { showToast('Выбери файл изображения.', 'error'); return; }
+    if (file.size > 8 * 1024 * 1024) { showToast('Размер изображения не должен превышать 8 МБ.', 'error'); return; }
+    const reader = new FileReader();
+    reader.onload = function () {
+      const source = new Image();
+      source.onload = function () {
+        const cropSize = Math.min(source.naturalWidth, source.naturalHeight);
+        const canvas = document.createElement('canvas');
+        canvas.width = 320;
+        canvas.height = 320;
+        canvas.getContext('2d').drawImage(source, (source.naturalWidth - cropSize) / 2, (source.naturalHeight - cropSize) / 2, cropSize, cropSize, 0, 0, 320, 320);
+        canvas.toBlob(function (blob) {
+          if (!blob) { showToast('Не удалось обработать это изображение.', 'error'); return; }
+          const compressed = new FileReader();
+          compressed.onload = function () { setAvatarSelection(compressed.result); };
+          compressed.readAsDataURL(blob);
+        }, 'image/jpeg', 0.82);
+      };
+      source.onerror = function () { showToast('Не удалось открыть это изображение.', 'error'); };
+      source.src = reader.result;
+    };
+    reader.onerror = function () { showToast('Не удалось прочитать этот файл.', 'error'); };
+    reader.readAsDataURL(file);
   }
 
   function clearFilters() {
@@ -752,6 +897,19 @@
   }
 
   document.addEventListener('click', function (event) {
+    const homeFeature = event.target.closest('[data-home-feature]');
+    if (homeFeature) {
+      state.homeFeature = homeFeature.dataset.homeFeature;
+      render();
+      return;
+    }
+    const categoryFilter = event.target.closest('[data-category-filter]');
+    if (categoryFilter) {
+      state.filters = Object.assign({}, state.filters, { category: categoryFilter.dataset.categoryFilter, query: '' });
+      state.activeMood = null;
+      goTo('explore');
+      return;
+    }
     const route = event.target.closest('[data-route]');
     if (route) {
       event.preventDefault();
@@ -793,9 +951,13 @@
       return;
     }
     const action = event.target.closest('[data-action]');
+    const avatarChoice = event.target.closest('[data-avatar-choice]');
+    if (avatarChoice) { setAvatarSelection(avatarChoice.dataset.avatarChoice); return; }
     if (!action) return;
     if (action.dataset.action === 'open-login') { openAuthModal('login'); return; }
     if (action.dataset.action === 'open-register') { openAuthModal('register'); return; }
+    if (action.dataset.action === 'confirm-registration') { completeRegistration(); return; }
+    if (action.dataset.action === 'cancel-registration') { state.pendingRegistration = null; modal.close(); return; }
     if (action.dataset.action === 'toggle-account') { document.getElementById('account-menu').classList.toggle('is-open'); return; }
     if (action.dataset.action === 'logout') { storage.clearCurrentUser(); window.location.reload(); return; }
     if (action.dataset.action === 'delete-offer') { openDeleteConfirmation(action.dataset.id); return; }
@@ -840,6 +1002,16 @@
   });
 
   document.addEventListener('change', function (event) {
+    if (event.target.id === 'agreement-accept') {
+      const confirmButton = modalContent.querySelector('[data-action="confirm-registration"]');
+      if (confirmButton) confirmButton.disabled = !event.target.checked;
+      return;
+    }
+    if (event.target.id === 'profile-avatar-file') {
+      processAvatarFile(event.target.files && event.target.files[0]);
+      event.target.value = '';
+      return;
+    }
     if (event.target.matches('[data-filter]') && event.target.dataset.filter !== 'query') {
       state.filters[event.target.dataset.filter] = event.target.value;
       saveSettings();
@@ -863,6 +1035,18 @@
     const isOpen = nav.classList.toggle('is-open');
     mobileMenu.setAttribute('aria-expanded', String(isOpen));
     mobileMenu.setAttribute('aria-label', isOpen ? 'Закрыть меню' : 'Открыть меню');
+  });
+
+  document.addEventListener('keydown', function (event) {
+    const activeTab = event.target.closest('[data-home-feature]');
+    if (!activeTab || !['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+    const tabs = Array.from(root.querySelectorAll('[data-home-feature]'));
+    const currentIndex = tabs.indexOf(activeTab);
+    const nextIndex = event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1 : (currentIndex + (event.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length;
+    event.preventDefault();
+    state.homeFeature = tabs[nextIndex].dataset.homeFeature;
+    render();
+    root.querySelector('[data-home-feature="' + state.homeFeature + '"]').focus();
   });
 
   modal.addEventListener('click', function (event) {
