@@ -348,9 +348,9 @@
   function renderHomeSupport() {
     const features = [
       { id: 'exchange', label: 'Обмен навыками', title: 'Обменивайся знаниями и навыками', description: 'Предлагай другим свои знания и находи людей, которые могут научить тебя чему-то новому.', image: data.demoOffers[0].imageUrl, tag: 'Паста ↔ английский', route: 'create', action: 'Предложить навык', person: data.demoOffers[0] },
-      { id: 'people', label: 'Поиск людей', title: 'Находи людей с похожими интересами', description: 'Общайся с пользователями, находи подходящие предложения и создавай полезные знакомства.', image: data.moods[5].photo, tag: '30 участников', route: 'explore', action: 'Найти людей', person: data.demoOffers[1] },
+      { id: 'people', label: 'Поиск людей', title: 'Находи людей с похожими интересами', description: 'Общайся с пользователями, находи подходящие предложения и создавай полезные знакомства.', image: 'https://images.unsplash.com/photo-1511632765486-a01980e01a18?auto=format&fit=crop&w=1200&h=800&q=88', tag: '31 участник', route: 'explore', action: 'Найти людей', person: data.demoOffers[1] },
       { id: 'learning', label: 'Обучение', title: 'Учись у людей с реальным опытом', description: 'Находи интересные навыки, задавай вопросы и развивайся вместе с другими пользователями.', image: data.demoOffers[3].imageUrl, tag: 'Учимся на практике', route: 'explore', action: 'Выбрать навык', person: data.demoOffers[3] },
-      { id: 'community', label: 'Сообщество', title: 'Развивайся вместе с сообществом', description: 'Общайся, помогай другим и находи людей, которым интересно то же, что и тебе.', image: data.moods[2].photo, tag: 'Навыки объединяют', route: 'about', action: 'О сообществе', person: data.demoOffers[2] }
+      { id: 'community', label: 'Сообщество', title: 'Развивайся вместе с сообществом', description: 'Общайся, помогай другим и находи людей, которым интересно то же, что и тебе.', image: 'https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=1200&h=800&q=88', tag: 'Навыки объединяют', route: 'about', action: 'О сообществе', person: data.demoOffers[2] }
     ];
     const active = features.find(function (feature) { return feature.id === state.homeFeature; }) || features[0];
     const tabs = features.map(function (feature) {
@@ -379,13 +379,13 @@
     const skillCount = new Set(state.offers.reduce(function (skills, offer) { return skills.concat([offer.teach, offer.learn]); }, []).filter(Boolean)).size;
     const categories = ['Программирование', 'Дизайн', 'Языки', 'Готовка', 'Рукоделие', 'Музыка', 'Спорт', 'Технологии', 'Другое'];
     const benefits = [
-      { title: 'Обмен навыками', text: 'Учи других тому, что умеешь сам.', photo: data.moods[0].photo, label: 'Передавай опыт' },
-      { title: 'Люди рядом', text: 'Находи пользователей с похожими интересами.', photo: data.moods[2].photo, label: 'Знакомься и общайся' },
-      { title: 'Взаимовыгодное обучение', text: 'Помогай другим и развивай собственные навыки.', photo: data.moods[5].photo, label: 'Расти вместе' },
-      { title: 'Умные совпадения', text: 'Находи людей, чьи навыки подходят твоим целям.', photo: data.moods[1].photo, label: 'Подбор по интересам' }
+      { title: 'Обмен навыками', text: 'Учи других тому, что умеешь сам.', visual: 'exchange', label: 'Передавай опыт' },
+      { title: 'Люди рядом', text: 'Находи пользователей с похожими интересами.', visual: 'community', label: 'Знакомься и общайся' },
+      { title: 'Взаимовыгодное обучение', text: 'Помогай другим и развивай собственные навыки.', visual: 'growth', label: 'Расти вместе' },
+      { title: 'Умные совпадения', text: 'Находи людей, чьи навыки подходят твоим целям.', visual: 'matching', label: 'Подбор по интересам' }
     ];
     return '<div class="page-shell home-shell"><section class="hero home-hero" aria-labelledby="hero-title"><div class="hero-copy"><p class="eyebrow">Сообщество взаимного обучения</p><h1 id="hero-title">Учись новому. <span>Делись тем, что умеешь.</span></h1><p>Находи людей, обменивайся навыками и развивайся вместе.</p><div class="hero-actions"><button class="button button-primary" type="button" data-route="explore">Найти навык <span aria-hidden="true">→</span></button><button class="button button-secondary" type="button" data-route="create">Предложить навык <span aria-hidden="true">↗</span></button></div><div class="home-stats"><div><strong>' + userCount + '</strong><span>участников</span></div><div><strong>' + state.offers.length + '</strong><span>предложений</span></div><div><strong>' + skillCount + '</strong><span>навыков</span></div></div><div class="home-categories" aria-label="Категории навыков">' + categories.map(function (category) { return '<button type="button" class="home-category" data-category-filter="' + escapeHTML(category) + '">' + escapeHTML(category) + '</button>'; }).join('') + '</div></div><div class="hero-visual home-hero-visual" aria-label="Предложения участников SkillSwap"><div class="hero-offer-stack">' + heroOffers.map(renderHeroOfferCard).join('') + '</div><span class="hero-stack-note">Обменивайся опытом каждый день</span></div></section>' +
-      '<section class="section-block benefit-section" aria-labelledby="benefits-title"><div class="section-heading"><div><p class="eyebrow">Учимся друг у друга</p><h2 id="benefits-title">Почему SkillSwap?</h2></div><p class="benefit-intro">Навыки, люди и взаимная поддержка — в одном сообществе.</p></div><div class="benefit-feature-grid">' + benefits.map(function (benefit, index) { return '<article class="benefit-feature benefit-feature-' + (index + 1) + '"><img src="' + escapeHTML(benefit.photo) + '" alt="" loading="lazy"><div class="benefit-feature-copy"><span>' + escapeHTML(benefit.label) + '</span><h3>' + escapeHTML(benefit.title) + '</h3><p>' + escapeHTML(benefit.text) + '</p></div></article>'; }).join('') + '</div></section>' +
+      '<section class="section-block benefit-section" aria-labelledby="benefits-title"><div class="section-heading"><div><p class="eyebrow">Учимся друг у друга</p><h2 id="benefits-title">Почему SkillSwap?</h2></div><p class="benefit-intro">Навыки, люди и взаимная поддержка — в одном сообществе.</p></div><div class="benefit-feature-grid">' + benefits.map(function (benefit, index) { return '<article class="benefit-feature benefit-feature-' + (index + 1) + '" data-visual="' + benefit.visual + '"><div class="benefit-art" aria-hidden="true"><span class="benefit-art-line"></span><span class="benefit-art-shape benefit-art-shape-a"></span><span class="benefit-art-shape benefit-art-shape-b"></span><span class="benefit-art-shape benefit-art-shape-c"></span><span class="benefit-art-dot"></span></div><div class="benefit-feature-copy"><span>' + escapeHTML(benefit.label) + '</span><h3>' + escapeHTML(benefit.title) + '</h3><p>' + escapeHTML(benefit.text) + '</p></div></article>'; }).join('') + '</div></section>' +
       '<section class="section-block home-offers-section" aria-labelledby="home-offers-title"><div class="section-heading"><div><p class="eyebrow">Навыки сообщества</p><h2 id="home-offers-title">Предложения участников</h2></div><button class="text-link" type="button" data-route="explore">Все предложения <span aria-hidden="true">→</span></button></div><div class="home-offers-grid">' + featured.map(renderHomeOfferCard).join('') + '</div></section>' +
       '<section class="section-block" aria-labelledby="mood-title"><div class="section-heading"><div><p class="eyebrow">Начни с настроения</p><h2 id="mood-title">Что хочешь сегодня?</h2></div><span class="results-count">Выбери направление</span></div><div class="mood-grid">' + data.moods.map(function (mood) { return '<button type="button" class="mood-card" data-mood="' + mood.id + '"><img class="mood-photo" src="' + escapeHTML(mood.photo) + '" alt="" loading="lazy"><strong>' + escapeHTML(mood.title) + '</strong><span class="card-hint">' + escapeHTML(mood.hint) + '</span></button>'; }).join('') + '</div></section>' +
       '<section class="section-block"><div class="section-heading"><div><p class="eyebrow">То, что ищут чаще</p><h2>Популярные навыки</h2></div><button class="text-link" type="button" data-route="explore">Весь каталог <span aria-hidden="true">→</span></button></div><div class="popular-list">' + ['Английский', 'Дизайн интерфейсов', 'Python', 'Фотография', 'Figma', 'Гитара', 'Видеомонтаж'].map(function (skill) { return '<button type="button" class="popular-chip" data-search-skill="' + escapeHTML(skill) + '">' + escapeHTML(skill) + '</button>'; }).join('') + '</div></section>' +
@@ -498,6 +498,27 @@
     return '<div class="page-shell"><div class="page-title-row"><div><p class="eyebrow">Помощь по SkillSwap</p><h1>Поддержка SkillSwap</h1><p>Не нашли ответ на свой вопрос? Опишите проблему, и мы постараемся помочь.</p></div></div>' + notice + '<div class="support-layout"><section class="form-panel"><h2>Обратиться в поддержку</h2><form id="support-form" novalidate><div class="form-field"><label for="support-subject">Тема</label><select id="support-subject" name="subject" required><option value="">Выберите тему</option><option>Проблема с аккаунтом</option><option>Проблема с предложением</option><option>Проблема с чатом</option><option>Проблема с совпадением</option><option>Ошибка на сайте</option><option>Другое</option></select><span class="field-error" data-error="subject"></span></div><div class="form-field"><label for="support-message">Сообщение</label><textarea id="support-message" name="message" required maxlength="1000" placeholder="Опишите вашу проблему..."></textarea><span class="field-error" data-error="message"></span></div><button class="button button-primary" type="submit">Отправить обращение</button></form></section><aside class="support-faq"><h2>Часто задаваемые вопросы</h2><details><summary>Как создать предложение?</summary><p>Авторизуйтесь и перейдите в раздел «Предложить навык».</p></details><details><summary>Как найти человека для обмена навыками?</summary><p>Используйте поиск, фильтры и карточки предложений.</p></details><details><summary>Как начать общение?</summary><p>Откройте карточку пользователя и нажмите «Написать».</p></details><details><summary>Как работает совпадение?</summary><p>Система ищет пользователей, чьи навыки и желания соответствуют друг другу.</p></details><details><summary>Сохраняются ли мои данные?</summary><p>Да. Данные сохраняются локально в браузере через localStorage.</p></details></aside></div>' + (currentUser ? '<section class="support-tickets"><h2>Мои обращения</h2>' + (ownTickets.length ? ownTickets.map(function (ticket) { return '<article class="support-ticket"><strong>#' + escapeHTML(ticket.id.slice(-6)) + '</strong><span>' + escapeHTML(ticket.subject) + '</span><small>Статус: ' + (ticket.status === 'new' ? 'Новое' : 'Решено') + '</small></article>'; }).join('') : '<p class="muted">Вы ещё не отправляли обращений.</p>') + '</section>' : '') + '</div>';
   }
 
+  function renderCreatorsSection() {
+    return '<section class="page-shell creators-section" id="about-creators" aria-labelledby="creators-title"><div class="creators-layout"><figure class="creators-photo"><img class="media-image" src="5343586967687470815.jpg" alt="Создатели SkillSwap вместе за работой"><figcaption>Команда SkillSwap</figcaption></figure><div class="creators-content"><p class="eyebrow">Люди за платформой</p><h2 id="creators-title">О создателях</h2><p class="creators-subtitle">Люди, которые создали SkillSwap</p><div class="creators-people"><article class="creators-person"><span>01</span><div><h3>Р. Алишер</h3><p>Сооснователь / Разработчик</p><small>Создаёт инструменты для поиска и обмена навыками.</small></div></article><article class="creators-person"><span>02</span><div><h3>Т. Аймухан</h3><p>Сооснователь / Дизайнер</p><small>Продумывает визуальный язык и удобные сценарии обучения.</small></div></article></div><p class="creators-mission">Мы создали SkillSwap, чтобы люди могли обмениваться знаниями, находить единомышленников и развивать навыки вместе. Наша цель — сделать обучение более доступным, живым и взаимовыгодным.</p><p class="creators-signature">Создано людьми для людей.</p></div></div></section>';
+  }
+
+  function observeCreatorsSection() {
+    const section = root.querySelector('#about-creators');
+    if (!section) return;
+    if (!('IntersectionObserver' in window) || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      section.classList.add('is-visible');
+      return;
+    }
+    const observer = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        if (!entry.isIntersecting) return;
+        entry.target.classList.add('is-visible');
+        observer.unobserve(entry.target);
+      });
+    }, { threshold: 0.14 });
+    observer.observe(section);
+  }
+
   function renderAbout() {
     const faq = [
       ['Что такое SkillSwap?', 'SkillSwap — платформа, на которой пользователи находят друг друга для обмена знаниями, навыками и опытом.'],
@@ -583,12 +604,27 @@
     header.appendChild(reportButton);
   }
 
+  function prepareImageTransitions(container) {
+    container.querySelectorAll('img').forEach(function (image) {
+      image.classList.add('media-image');
+      if (image.complete && image.naturalWidth > 0) image.classList.add('is-loaded');
+    });
+  }
+
   function render() {
     updateNavigation();
     const views = { home: renderHome, explore: renderExplore, create: renderCreate, matches: renderMatches, favorites: renderFavorites, profile: renderProfile, about: renderAbout };
     views.messages = renderMessages;
     views.support = renderSupport;
     root.innerHTML = (views[state.view] || renderHome)();
+    if (state.view === 'about') {
+      const platformSection = root.querySelector('#about-platform');
+      const aboutSubnav = root.querySelector('.about-subnav > div');
+      if (platformSection) platformSection.insertAdjacentHTML('afterend', renderCreatorsSection());
+      if (aboutSubnav) aboutSubnav.insertAdjacentHTML('beforeend', '<a href="#about-creators" data-route="about" data-about-section="about-creators">Создатели</a>');
+      prepareImageTransitions(root);
+      observeCreatorsSection();
+    }
     if (state.view === 'home') {
       const homeOffersSection = root.querySelector('.home-offers-section');
       if (homeOffersSection) homeOffersSection.insertAdjacentHTML('beforebegin', renderHomeSupport());
@@ -624,6 +660,7 @@
       addModerationButtons();
     }
     addChatReportButton();
+    prepareImageTransitions(root);
     root.setAttribute('aria-busy', 'false');
   }
 
@@ -666,6 +703,7 @@
       detailButton.textContent = '⚑';
     }
     detailActions.appendChild(detailButton);
+    prepareImageTransitions(modalContent);
     modal.showModal();
   }
 
@@ -682,6 +720,7 @@
     modalContent.querySelector('#profile-teach').setAttribute('list', 'skill-options');
     modalContent.querySelector('#profile-learn').setAttribute('list', 'skill-options');
     modalContent.insertAdjacentHTML('beforeend', skillOptionsMarkup());
+    prepareImageTransitions(modalContent);
     modal.showModal();
   }
 
@@ -768,6 +807,7 @@
     if (!form || !preview) return;
     form.dataset.avatarUrl = imageUrl;
     preview.innerHTML = imageUrl ? '<img src="' + escapeHTML(imageUrl) + '" alt="Предпросмотр фото профиля">' : escapeHTML(initials(formValue(form, 'name')));
+    prepareImageTransitions(preview);
     modalContent.querySelectorAll('[data-avatar-choice]').forEach(function (button) {
       button.setAttribute('aria-pressed', String(button.dataset.avatarChoice === imageUrl));
     });
@@ -1054,6 +1094,10 @@
   });
 
   modal.addEventListener('close', function () { state.detailOfferId = null; });
+
+  document.addEventListener('load', function (event) {
+    if (event.target instanceof HTMLImageElement) event.target.classList.add('media-image', 'is-loaded');
+  }, true);
 
   render();
 })();
