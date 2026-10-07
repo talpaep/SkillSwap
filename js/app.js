@@ -70,15 +70,73 @@
     return String(name || '?').trim().split(/\s+/).slice(0, 2).map(function (part) { return part.charAt(0); }).join('').toLocaleUpperCase('ru');
   }
 
+  const mockPresence = [
+    { online: true },
+    { online: false },
+    { online: false },
+    { online: false },
+    { online: true },
+    { online: false },
+    { online: false },
+    { online: true },
+    { online: false },
+    { online: false },
+    { online: true },
+    { online: false }
+  ];
+
+  function getPresence(userId) {
+    if (!userId) return null;
+    if (currentUser && userId === currentUser.id) return { online: true };
+    const demoIndex = data.demoUsers.findIndex(function (user) { return user.id === userId; });
+    return demoIndex >= 0 ? mockPresence[demoIndex % mockPresence.length] : { online: false };
+  }
+
+  function presenceMarkup(userId) {
+    const presence = getPresence(userId);
+    if (!presence) return '';
+    const statusText = presence.online ? 'В сети' : 'Не в сети';
+    return '<span class="user-presence ' + (presence.online ? 'is-online' : 'is-offline') + '" aria-label="' + statusText + '"><span class="presence-indicator" aria-hidden="true"></span><span>' + statusText + '</span></span>';
+  }
+
   function avatar(name, color, size, imageUrl) {
     const ownProfileImage = currentUser && state.profile.name === name ? state.profile.avatarUrl : '';
     const matchedUser = storage.getUsers().find(function (user) { return user.name === name; });
     const matchedProfile = matchedUser && storage.getProfile(matchedUser.id);
     const matchedOffer = state.offers.find(function (offer) { return offer.userName === name && offer.avatarUrl; });
     const demoOffer = data.demoOffers.find(function (offer) { return offer.userName === name && offer.avatarUrl; });
+    const userId = currentUser && state.profile.name === name ? currentUser.id : (matchedUser ? matchedUser.id : (matchedOffer ? resolveOfferUserId(matchedOffer) : (demoOffer ? resolveOfferUserId(demoOffer) : '')));
     const photo = imageUrl || ownProfileImage || (matchedProfile && matchedProfile.avatarUrl) || (matchedOffer && matchedOffer.avatarUrl) || (demoOffer && demoOffer.avatarUrl) || (!name ? avatarPresets[0] : '');
     const content = photo ? '<img class="avatar-image" src="' + escapeHTML(photo) + '" alt="" loading="lazy">' : escapeHTML(initials(name));
-    return '<span class="avatar ' + (size || '') + '" style="--avatar-bg:' + escapeHTML(color || '#7886ed') + '" aria-hidden="true">' + content + '</span>';
+    const presence = getPresence(userId);
+    return '<span class="avatar ' + (size || '') + '" style="--avatar-bg:' + escapeHTML(color || '#7886ed') + '"' + (userId ? ' data-user-id="' + escapeHTML(userId) + '"' : '') + ' aria-hidden="true">' + content + (presence ? '<span class="presence-indicator ' + (presence.online ? 'is-online' : 'is-offline') + '" aria-hidden="true"></span>' : '') + '</span>';
+  }
+
+  function addPresenceLabels(container) {
+    const placements = [
+      ['.skill-card-top', '.card-user .person-name'],
+      ['.home-offer-author', 'strong'],
+      ['.hero-offer-copy > div', 'p'],
+      ['.review-top', 'strong'],
+      ['.profile-hero', '.profile-main h2'],
+      ['.detail-person', 'h2'],
+      ['.dialog-item', '.dialog-item-copy strong'],
+      ['.chat-header', 'h2']
+    ];
+    container.querySelectorAll('.avatar[data-user-id]').forEach(function (userAvatar) {
+      const userId = userAvatar.dataset.userId;
+      const placement = placements.find(function (item) { return userAvatar.closest(item[0]); });
+      if (placement) {
+        const holder = userAvatar.closest(placement[0]);
+        const name = holder && holder.querySelector(placement[1]);
+        if (name) name.insertAdjacentHTML('afterend', presenceMarkup(userId));
+      }
+      const supportPerson = userAvatar.closest('.home-support-person');
+      if (supportPerson) {
+        const descriptor = supportPerson.querySelector(':scope > span:not(.avatar)');
+        if (descriptor) descriptor.insertAdjacentHTML('afterend', presenceMarkup(userId));
+      }
+    });
   }
 
   function saveSettings() {
@@ -540,7 +598,7 @@
     const reviews = state.reviews.slice().sort(function (first, second) { return String(second.createdAt).localeCompare(String(first.createdAt)); });
     const reviewNotice = state.reviewNotice ? '<div class="success-banner"><span aria-hidden="true">✓</span><strong>Спасибо! Отзыв сохранён в этом браузере.</strong></div>' : '';
     const reviewForm = currentUser ? '<form id="review-form" class="about-review-form" novalidate><div class="form-field"><label for="review-rating">Оценка</label><select id="review-rating" name="rating" required><option value="">Выберите оценку</option><option value="5">5 — отлично</option><option value="4">4 — хорошо</option><option value="3">3 — нормально</option><option value="2">2 — есть вопросы</option><option value="1">1 — нужно улучшить</option></select></div><div class="form-field"><label for="review-text">Ваш отзыв</label><textarea id="review-text" name="text" required maxlength="500" placeholder="Расскажите о своём опыте..."></textarea><span class="field-error" data-error="text"></span></div><button class="button button-primary" type="submit">Оставить отзыв</button></form>' : '<p class="muted">Отзывы могут оставлять авторизованные пользователи.</p><button class="button button-secondary" type="button" data-action="open-login">Войти, чтобы оставить отзыв</button>';
-    return '<div class="about-page"><section class="about-hero page-shell"><div class="about-hero-copy"><p class="eyebrow">Пространство для взаимного роста</p><h1>SkillSwap — обменивайся навыками, делись опытом, развивайся вместе</h1><p>Находи людей, у которых можно научиться новому, и делись собственными знаниями.</p><div class="hero-actions"><button class="button button-primary" type="button" data-route="explore">Начать обмен <span aria-hidden="true">→</span></button><button class="button button-secondary" type="button" data-about-scroll="about-platform">Как это работает <span aria-hidden="true">↓</span></button></div></div><div class="about-hero-art" aria-label="Схема обмена навыками"><div class="about-orbit about-orbit-a"><span>Дизайн</span><b>↗</b></div><div class="about-orbit about-orbit-b"><span>Английский</span><b>↙</b></div><div class="about-art-center">⇄<small>обмен</small></div><div class="about-art-tag">люди · навыки · опыт</div></div></section><nav class="about-subnav" aria-label="Разделы о SkillSwap"><div><a href="#about-platform" data-route="about" data-about-section="about-platform">О платформе</a><a href="#about-faq" data-route="about" data-about-section="about-faq">FAQ</a><a href="#about-contacts" data-route="about" data-about-section="about-contacts">Контакты</a><a href="#about-reviews" data-route="about" data-about-section="about-reviews">Отзывы</a></div></nav><section class="page-shell about-section" id="about-platform"><div class="about-intro"><div><p class="eyebrow">Что такое SkillSwap?</p><h2>Знания растут, когда ими делятся</h2></div><p>SkillSwap — платформа для поиска людей, обмена навыками, общения и совместного обучения. Здесь можно предложить свои умения, найти подходящего собеседника и развиваться через взаимность.</p></div><div class="about-section-heading"><p class="eyebrow">Путь от интереса к обмену</p><h2>Как работает платформа</h2></div><div class="about-steps">' + steps.map(function (step) { return '<article class="about-step"><span class="about-step-icon">' + step[3] + '</span><small>' + step[0] + '</small><h3>' + step[1] + '</h3><p>' + step[2] + '</p></article>'; }).join('') + '</div><div class="about-section-heading"><p class="eyebrow">Зачем присоединяться</p><h2>Преимущества SkillSwap</h2></div><div class="benefits-grid">' + benefits.map(function (benefit, index) { return '<article class="benefit-item"><span>' + ['✦', '◌', '⌕', '✉', '↗', '⇄'][index] + '</span><strong>' + benefit + '</strong></article>'; }).join('') + '</div></section><section class="page-shell about-section" id="about-faq"><div class="about-section-heading"><p class="eyebrow">Ответы рядом</p><h2>Часто задаваемые вопросы</h2><p>Коротко о том, как устроен обмен навыками.</p></div><div class="about-faq-list">' + faq.map(function (item) { return '<details><summary>' + item[0] + '<span aria-hidden="true">+</span></summary><p>' + item[1] + '</p></details>'; }).join('') + '</div></section><section class="page-shell about-section" id="about-contacts"><div class="about-section-heading"><p class="eyebrow">Мы на связи</p><h2>Свяжитесь с нами</h2><p>Не нашли ответ? Опишите вопрос, и обращение сохранится в этом браузере для вашего аккаунта.</p></div>' + (state.contactNotice ? '<div class="success-banner"><span aria-hidden="true">✓</span><strong>Обращение сохранено в этом браузере.</strong></div>' : '') + '<div class="contact-layout"><div class="contact-card"><span class="contact-card-icon">✉</span><h3>Контактный адрес</h3><p>Публичный email команды пока не настроен. Используйте форму — она сохранит обращение локально.</p><a class="button button-quiet" href="#support" data-route="support">Открыть поддержку</a></div><form id="contact-form" class="form-panel about-contact-form" novalidate><div class="form-grid"><div class="form-field"><label for="contact-name">Имя</label><input id="contact-name" name="name" required value="' + escapeHTML(currentUser ? state.profile.name : '') + '"><span class="field-error" data-error="name"></span></div><div class="form-field"><label for="contact-email">Электронная почта</label><input id="contact-email" name="email" type="email" required value="' + escapeHTML(currentUser ? currentUser.email : '') + '"><span class="field-error" data-error="email"></span></div><div class="form-field full"><label for="contact-subject">Тема обращения</label><select id="contact-subject" name="subject" required><option value="">Выберите тему</option><option>Вопрос о платформе</option><option>Проблема с аккаунтом</option><option>Предложение по улучшению</option><option>Другое</option></select><span class="field-error" data-error="subject"></span></div><div class="form-field full"><label for="contact-message">Сообщение</label><textarea id="contact-message" name="message" required maxlength="1000" placeholder="Напишите нам..."></textarea><span class="field-error" data-error="message"></span></div></div><button class="button button-primary" type="submit">Отправить сообщение</button></form></div></section><section class="page-shell about-section" id="about-reviews"><div class="about-section-heading"><p class="eyebrow">Опыт сообщества</p><h2>Отзывы пользователей</h2><p>Демо-отзывы отмечены как примеры. Новые отзывы сохраняются локально.</p></div>' + reviewNotice + '<div class="reviews-grid">' + reviews.map(function (review) { return '<article class="review-card"><div class="review-top">' + avatar(review.author, '#7886ed', 'avatar-small') + '<div><strong>' + escapeHTML(review.author) + '</strong><time>' + new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(review.createdAt)) + '</time></div></div><div class="review-stars" aria-label="Оценка: ' + review.rating + ' из 5">' + '★'.repeat(Number(review.rating || 0)) + '<span>' + '★'.repeat(5 - Number(review.rating || 0)) + '</span></div><p>' + escapeHTML(review.text) + '</p>' + (review.demo ? '<small class="review-demo-label">Демо-отзыв</small>' : '') + '</article>'; }).join('') + '</div><div class="review-form-panel"><h3>Оставить отзыв</h3>' + reviewForm + '</div></section><section class="about-cta" id="about-join"><div><p class="eyebrow">Твоя следующая история</p><h2>Готов поделиться знаниями и освоить что-то новое?</h2><p>Присоединяйся к SkillSwap, находи единомышленников и развивайся вместе с другими.</p></div><button class="button button-primary" type="button" data-action="about-join">Присоединиться <span aria-hidden="true">→</span></button></section></div>';
+    return '<div class="about-page"><section class="about-hero page-shell"><div class="about-hero-copy"><p class="eyebrow">Пространство для взаимного роста</p><h1>SkillSwap — обменивайся навыками, делись опытом, развивайся вместе</h1><p>Находи людей, у которых можно научиться новому, и делись собственными знаниями.</p><div class="hero-actions"><button class="button button-primary" type="button" data-route="explore">Начать обмен <span aria-hidden="true">→</span></button><button class="button button-secondary" type="button" data-about-scroll="about-platform">Как это работает <span aria-hidden="true">↓</span></button></div></div><div class="about-hero-art" aria-label="Схема обмена навыками"><div class="about-orbit about-orbit-a"><span>Дизайн</span><b>↗</b></div><div class="about-orbit about-orbit-b"><span>Английский</span><b>↙</b></div><div class="about-art-center">⇄<small>обмен</small></div><div class="about-art-tag">люди · навыки · опыт</div></div></section><nav class="about-subnav" aria-label="Разделы о SkillSwap"><div><a href="#about-platform" data-route="about" data-about-section="about-platform">О платформе</a><a href="#about-faq" data-route="about" data-about-section="about-faq">FAQ</a><a href="#about-contacts" data-route="about" data-about-section="about-contacts">Контакты</a><a href="#about-reviews" data-route="about" data-about-section="about-reviews">Отзывы</a></div></nav><section class="page-shell about-section" id="about-platform"><div class="about-intro"><div><p class="eyebrow">Что такое SkillSwap?</p><h2>Знания растут, когда ими делятся</h2></div><p>SkillSwap — платформа для поиска людей, обмена навыками, общения и совместного обучения. Здесь можно предложить свои умения, найти подходящего собеседника и развиваться через взаимность.</p></div><div class="about-section-heading"><p class="eyebrow">Путь от интереса к обмену</p><h2>Как работает платформа</h2></div><div class="about-steps">' + steps.map(function (step) { return '<article class="about-step"><span class="about-step-icon">' + step[3] + '</span><small>' + step[0] + '</small><h3>' + step[1] + '</h3><p>' + step[2] + '</p></article>'; }).join('') + '</div><div class="about-section-heading"><p class="eyebrow">Зачем присоединяться</p><h2>Преимущества SkillSwap</h2></div><div class="benefits-grid">' + benefits.map(function (benefit, index) { return '<article class="benefit-item"><span>' + ['✦', '◌', '⌕', '✉', '↗', '⇄'][index] + '</span><strong>' + benefit + '</strong></article>'; }).join('') + '</div></section><section class="page-shell about-section" id="about-faq"><div class="about-section-heading"><p class="eyebrow">Ответы рядом</p><h2>Часто задаваемые вопросы</h2><p>Коротко о том, как устроен обмен навыками.</p></div><div class="about-faq-list">' + faq.map(function (item) { return '<details><summary>' + item[0] + '<span aria-hidden="true">+</span></summary><p>' + item[1] + '</p></details>'; }).join('') + '</div></section><section class="page-shell about-section" id="about-contacts"><div class="about-section-heading"><p class="eyebrow">Мы на связи</p><h2>Свяжитесь с нами</h2><p>Не нашли ответ? Опишите вопрос, и обращение сохранится в этом браузере для вашего аккаунта.</p></div>' + (state.contactNotice ? '<div class="success-banner"><span aria-hidden="true">✓</span><strong>Обращение сохранено в этом браузере.</strong></div>' : '') + '<div class="contact-layout"><div class="contact-card"><span class="contact-card-icon">✉</span><h3>Контактный адрес</h3><p>support@skillswap.com</p><a class="button button-quiet" href="mailto:support@skillswap.com">Написать нам</a></div><form id="contact-form" class="form-panel about-contact-form" novalidate><div class="form-grid"><div class="form-field"><label for="contact-name">Имя</label><input id="contact-name" name="name" required value="' + escapeHTML(currentUser ? state.profile.name : '') + '"><span class="field-error" data-error="name"></span></div><div class="form-field"><label for="contact-email">Электронная почта</label><input id="contact-email" name="email" type="email" required value="' + escapeHTML(currentUser ? currentUser.email : '') + '"><span class="field-error" data-error="email"></span></div><div class="form-field full"><label for="contact-subject">Тема обращения</label><select id="contact-subject" name="subject" required><option value="">Выберите тему</option><option>Вопрос о платформе</option><option>Проблема с аккаунтом</option><option>Предложение по улучшению</option><option>Другое</option></select><span class="field-error" data-error="subject"></span></div><div class="form-field full"><label for="contact-message">Сообщение</label><textarea id="contact-message" name="message" required maxlength="1000" placeholder="Напишите нам..."></textarea><span class="field-error" data-error="message"></span></div></div><button class="button button-primary" type="submit">Отправить сообщение</button></form></div></section><section class="page-shell about-section" id="about-reviews"><div class="about-section-heading"><p class="eyebrow">Опыт сообщества</p><h2>Отзывы пользователей</h2><p>Демо-отзывы отмечены как примеры. Новые отзывы сохраняются локально.</p></div>' + reviewNotice + '<div class="reviews-grid">' + reviews.map(function (review) { return '<article class="review-card"><div class="review-top">' + avatar(review.author, '#7886ed', 'avatar-small') + '<div><strong>' + escapeHTML(review.author) + '</strong><time>' + new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(review.createdAt)) + '</time></div></div><div class="review-stars" aria-label="Оценка: ' + review.rating + ' из 5">' + '★'.repeat(Number(review.rating || 0)) + '<span>' + '★'.repeat(5 - Number(review.rating || 0)) + '</span></div><p>' + escapeHTML(review.text) + '</p>' + (review.demo ? '<small class="review-demo-label">Демо-отзыв</small>' : '') + '</article>'; }).join('') + '</div><div class="review-form-panel"><h3>Оставить отзыв</h3>' + reviewForm + '</div></section><section class="about-cta" id="about-join"><div><p class="eyebrow">Твоя следующая история</p><h2>Готов поделиться знаниями и освоить что-то новое?</h2><p>Присоединяйся к SkillSwap, находи единомышленников и развивайся вместе с другими.</p></div><button class="button button-primary" type="button" data-action="about-join">Присоединиться <span aria-hidden="true">→</span></button></section></div>';
   }
 
   function addWriteButtons() {
@@ -660,6 +718,7 @@
       addModerationButtons();
     }
     addChatReportButton();
+    addPresenceLabels(root);
     prepareImageTransitions(root);
     root.setAttribute('aria-busy', 'false');
   }
@@ -703,6 +762,7 @@
       detailButton.textContent = '⚑';
     }
     detailActions.appendChild(detailButton);
+    addPresenceLabels(modalContent);
     prepareImageTransitions(modalContent);
     modal.showModal();
   }
